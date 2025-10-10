@@ -22,11 +22,18 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   AuthUser? _currentUser;
   bool _loadingUser = true;
+  
+  // Permisos del usuario actual
+  bool _canCreateCarnet = false;
+  bool _canManageExpedientes = false;
+  bool _canViewPromocion = false;
+  bool _canViewVacunacion = false;
 
   @override
   void initState() {
     super.initState();
     _loadUserInfo();
+    _loadPermissions();
   }
 
   Future<void> _loadUserInfo() async {
@@ -37,6 +44,55 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _loadingUser = false;
       });
     }
+  }
+
+  /// Cargar permisos del usuario actual
+  Future<void> _loadPermissions() async {
+    final canCarnet = await AuthService.hasPermission('carnets:write');
+    final canExpedientes = await AuthService.hasPermission('notas:write');
+    final canPromocion = await AuthService.hasPermission('promociones:read');
+    final canVacunacion = await AuthService.hasPermission('vacunacion:read');
+    
+    if (mounted) {
+      setState(() {
+        _canCreateCarnet = canCarnet;
+        _canManageExpedientes = canExpedientes;
+        _canViewPromocion = canPromocion;
+        _canViewVacunacion = canVacunacion;
+      });
+    }
+  }
+
+  /// Verificar permiso antes de navegar
+  Future<bool> _checkPermission(String permission, String feature) async {
+    final hasPermission = await AuthService.hasPermission(permission);
+    
+    if (!hasPermission && mounted) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.block, color: UAGroColors.rojoEscudo),
+              const SizedBox(width: 8),
+              const Text('Acceso Denegado'),
+            ],
+          ),
+          content: Text(
+            'No tienes permiso para acceder a "$feature".\n\n'
+            'Contacta al administrador si necesitas este acceso.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Entendido'),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return hasPermission;
   }
 
   Future<void> _handleLogout() async {
@@ -213,76 +269,140 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     builder: (context, constraints) {
                       // Responsive: 2 columnas en pantallas grandes, 1 en pequeñas
                       final isWide = constraints.maxWidth > 600;
-                      return Wrap(
-                        spacing: 16,
-                        runSpacing: 16,
-                        alignment: WrapAlignment.center,
-                        children: [
-                          // Opción 1: Crear Carnet
+                      
+                      // Lista de opciones visibles según permisos
+                      final List<Widget> visibleOptions = [];
+                      
+                      // Opción 1: Crear Carnet (solo si tiene permiso de escritura)
+                      if (_canCreateCarnet) {
+                        visibleOptions.add(
                           _DashboardCard(
                             icon: Icons.badge_outlined,
                             title: 'Crear Carnet',
                             description: 'Registro de nuevo carnet estudiantil',
                             color: UAGroColors.azulMarino,
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => FormScreen(db: widget.db),
-                                ),
-                              );
+                            onTap: () async {
+                              if (await _checkPermission('carnets:write', 'Crear Carnet')) {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => FormScreen(db: widget.db),
+                                  ),
+                                );
+                              }
                             },
                             width: isWide ? 280 : constraints.maxWidth - 48,
                           ),
+                        );
+                      }
 
-                          // Opción 2: Administrar Expedientes
+                      // Opción 2: Administrar Expedientes (solo si puede crear notas)
+                      if (_canManageExpedientes) {
+                        visibleOptions.add(
                           _DashboardCard(
                             icon: Icons.folder_open,
                             title: 'Administrar Expedientes',
                             description: 'Gestión de notas y expedientes médicos',
                             color: UAGroColors.rojoEscudo,
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => NuevaNotaScreen(db: widget.db),
-                                ),
-                              );
+                            onTap: () async {
+                              if (await _checkPermission('notas:write', 'Administrar Expedientes')) {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => NuevaNotaScreen(db: widget.db),
+                                  ),
+                                );
+                              }
                             },
                             width: isWide ? 280 : constraints.maxWidth - 48,
                           ),
+                        );
+                      }
 
-                          // Opción 3: Promoción de Salud
+                      // Opción 3: Promoción de Salud
+                      if (_canViewPromocion) {
+                        visibleOptions.add(
                           _DashboardCard(
                             icon: Icons.campaign,
                             title: 'Promoción de Salud',
                             description: 'Crear y gestionar promociones de salud',
                             color: Colors.green[700]!,
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const PromocionSaludScreen(),
-                                ),
-                              );
+                            onTap: () async {
+                              if (await _checkPermission('promociones:read', 'Promoción de Salud')) {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const PromocionSaludScreen(),
+                                  ),
+                                );
+                              }
                             },
                             width: isWide ? 280 : constraints.maxWidth - 48,
                           ),
+                        );
+                      }
 
-                          // Opción 4: Vacunación (nueva)
+                      // Opción 4: Vacunación (nueva)
+                      if (_canViewVacunacion) {
+                        visibleOptions.add(
                           _DashboardCard(
                             icon: Icons.vaccines,
                             title: 'Vacunación',
                             description: 'Campañas y registro de vacunación',
                             color: Colors.purple[700]!,
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const VaccinationScreen(),
-                                ),
-                              );
+                            onTap: () async {
+                              if (await _checkPermission('vacunacion:read', 'Vacunación')) {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const VaccinationScreen(),
+                                  ),
+                                );
+                              }
                             },
                             width: isWide ? 280 : constraints.maxWidth - 48,
                             badge: 'NUEVO',
                           ),
-                        ],
+                        );
+                      }
+                      
+                      // Si no tiene ningún permiso, mostrar mensaje
+                      if (visibleOptions.isEmpty) {
+                        return Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: Colors.orange[50],
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.orange[300]!),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(Icons.info_outline, size: 48, color: Colors.orange[700]),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Sin Permisos Asignados',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange[900],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Tu cuenta no tiene permisos para acceder a ninguna funcionalidad.\n'
+                                'Contacta al administrador del sistema.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      
+                      return Wrap(
+                        spacing: 16,
+                        runSpacing: 16,
+                        alignment: WrapAlignment.center,
+                        children: visibleOptions,
                       );
                     },
                   ),

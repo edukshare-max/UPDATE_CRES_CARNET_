@@ -50,12 +50,15 @@ class MyApp extends StatelessWidget {
             );
           }
 
-          // Si tiene sesión activa, ir al Dashboard con AuthGate
+          // Si tiene sesión activa, ir directamente al Dashboard
+          // NOTA: AuthGate (PIN) deshabilitado temporalmente para pruebas de FASE 10
           if (snapshot.data == true) {
-            return AuthGate(
-              autoLock: const Duration(minutes: 10),
-              child: DashboardScreen(db: db),
-            );
+            return DashboardScreen(db: db);
+            // TODO: Restaurar AuthGate después de pruebas
+            // return AuthGate(
+            //   autoLock: const Duration(minutes: 10),
+            //   child: DashboardScreen(db: db),
+            // );
           }
 
           // Si no tiene sesión, mostrar LoginScreen

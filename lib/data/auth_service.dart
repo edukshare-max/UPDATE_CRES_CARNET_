@@ -286,11 +286,19 @@ class AuthService {
                 'promociones:read', 'promociones:write', 'vacunacion:read', 'vacunacion:write'],
       'medico': ['carnets:read', 'carnets:write', 'notas:read', 'notas:write',
                  'citas:read', 'citas:write', 'vacunacion:read', 'vacunacion:write'],
-      'nutricion': ['carnets:read', 'notas:read', 'notas:write', 'citas:read', 'citas:write'],
-      'psicologia': ['carnets:read', 'notas:read', 'notas:write', 'citas:read', 'citas:write'],
-      'odontologia': ['carnets:read', 'notas:read', 'notas:write', 'citas:read', 'citas:write'],
-      'enfermeria': ['carnets:read', 'vacunacion:read', 'vacunacion:write'],
-      'recepcion': ['carnets:read', 'citas:read', 'citas:write'],
+      'nutricion': ['carnets:read', 'carnets:write', 'notas:read', 'notas:write', 
+                    'citas:read', 'citas:write', 'vacunacion:read', 'vacunacion:write'],
+      'psicologia': ['carnets:read', 'carnets:write', 'notas:read', 'notas:write', 
+                     'citas:read', 'citas:write', 'vacunacion:read', 'vacunacion:write'],
+      'odontologia': ['carnets:read', 'carnets:write', 'notas:read', 'notas:write', 
+                      'citas:read', 'citas:write', 'vacunacion:read', 'vacunacion:write'],
+      'enfermeria': ['carnets:read', 'carnets:write', 'notas:read', 'notas:write',
+                     'citas:read', 'citas:write', 'vacunacion:read', 'vacunacion:write'],
+      'recepcion': ['carnets:read', 'carnets:write', 'notas:read', 'notas:write',
+                    'citas:read', 'citas:write', 'vacunacion:read', 'vacunacion:write'],
+      'servicios_estudiantiles': ['carnets:read', 'carnets:write', 'notas:read', 'notas:write',
+                                  'citas:read', 'citas:write', 'promociones:read', 'promociones:write',
+                                  'vacunacion:read', 'vacunacion:write'],
       'lectura': ['carnets:read'],
     };
 
@@ -352,6 +360,7 @@ class AuthService {
       'odontologia': 'Odontología',
       'enfermeria': 'Enfermería',
       'recepcion': 'Recepción',
+      'servicios_estudiantiles': 'Servicios Estudiantiles',
       'lectura': 'Solo Lectura',
     };
     return rolNames[rol] ?? rol;
