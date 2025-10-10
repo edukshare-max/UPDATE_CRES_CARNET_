@@ -165,8 +165,10 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
         _descripcionCtrl.clear();
         setState(() => _vacunasSeleccionadasCampana = []);
         await _cargarCampanas();
-      } else if (response.statusCode == 404) {
-        // Endpoint no existe, guardar localmente
+      } else if (response.statusCode == 404 || response.statusCode == 422 || 
+                 response.statusCode >= 500) {
+        // Endpoint no existe, datos incompatibles o error del servidor → guardar localmente
+        print('⚠️ Backend error ${response.statusCode}, usando modo local');
         final nuevaCampana = {
           'id': DateTime.now().millisecondsSinceEpoch.toString(),
           'nombre': _nombreCampanaCtrl.text.trim(),
@@ -180,7 +182,7 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
           _campanaActivaId = nuevaCampana['id'] as String;
           _campanaActivaNombre = nuevaCampana['nombre'] as String;
         });
-        _mostrarExito('Campaña creada localmente (modo sin conexión)');
+        _mostrarExito('Campaña creada localmente (backend no compatible)');
         _nombreCampanaCtrl.clear();
         _descripcionCtrl.clear();
         setState(() => _vacunasSeleccionadasCampana = []);
@@ -257,8 +259,10 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
           _vacunaSeleccionada = null;
         });
         await _cargarRegistrosCampana(_campanaActivaId!);
-      } else if (response.statusCode == 404) {
-        // Endpoint no existe, guardar localmente
+      } else if (response.statusCode == 404 || response.statusCode == 422 || 
+                 response.statusCode >= 500) {
+        // Endpoint no existe, datos incompatibles o error del servidor → guardar localmente
+        print('⚠️ Backend error ${response.statusCode}, usando modo local');
         final nuevoRegistro = {
           'id': DateTime.now().millisecondsSinceEpoch.toString(),
           'campanaId': _campanaActivaId!,
@@ -273,7 +277,7 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
           'fechaAplicacion': _fechaAplicacion.toIso8601String(),
         };
         setState(() => _registros.add(nuevoRegistro));
-        _mostrarExito('Vacunación registrada localmente (modo sin conexión)');
+        _mostrarExito('Vacunación registrada localmente (backend no compatible)');
         _matriculaCtrl.clear();
         _nombreEstudianteCtrl.clear();
         _loteCtrl.clear();
