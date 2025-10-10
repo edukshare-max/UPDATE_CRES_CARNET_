@@ -25,7 +25,8 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
   final _observacionesCtrl = TextEditingController();
 
   // Variables de estado
-  String? _vacunaSeleccionada;
+  String? _vacunaSeleccionada; // Para registrar aplicación individual
+  List<String> _vacunasSeleccionadasCampana = []; // Para crear campaña (múltiples)
   int _dosisSeleccionada = 1;
   DateTime _fechaInicio = DateTime.now();
   DateTime _fechaAplicacion = DateTime.now();
@@ -86,7 +87,7 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
     try {
       final response = await http.get(
         Uri.parse('$_apiBaseUrl/vaccination-campaigns/'),
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as List;
@@ -103,11 +104,17 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
             _cargarRegistrosCampana(_campanaActivaId!);
           }
         });
+      } else if (response.statusCode == 404) {
+        // Endpoint no existe aún, usar datos locales
+        print('⚠️ Endpoint de campañas no implementado, usando modo local');
+        setState(() => _campanas = []);
       } else {
         _mostrarError('Error al cargar campañas: ${response.statusCode}');
       }
     } catch (e) {
-      _mostrarError('Error de conexión: $e');
+      // Error de conexión o endpoint no existe, trabajar en modo local
+      print('⚠️ No se pudo conectar al backend: $e');
+      setState(() => _campanas = []);
     } finally {
       setState(() => _isLoadingCampaigns = false);
     }
@@ -132,8 +139,8 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
   /// Crear una nueva campaña de vacunación
   Future<void> _crearCampana() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_vacunaSeleccionada == null) {
-      _mostrarError('Selecciona una vacuna');
+    if (_vacunasSeleccionadasCampana.isEmpty) {
+      _mostrarError('Selecciona al menos una vacuna para la campaña');
       return;
     }
 
@@ -145,24 +152,61 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
         body: json.encode({
           'nombre': _nombreCampanaCtrl.text.trim(),
           'descripcion': _descripcionCtrl.text.trim(),
-          'vacuna': _vacunaSeleccionada!,
+          'vacunas': _vacunasSeleccionadasCampana, // MÚLTIPLES VACUNAS
           'fechaInicio': _fechaInicio.toIso8601String(),
           'activa': true,
         }),
-      );
+      ).timeout(const Duration(seconds: 10));
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final data = json.decode(response.body);
         _mostrarExito('Campaña creada exitosamente');
         _nombreCampanaCtrl.clear();
         _descripcionCtrl.clear();
-        setState(() => _vacunaSeleccionada = null);
+        setState(() => _vacunasSeleccionadasCampana = []);
         await _cargarCampanas();
+      } else if (response.statusCode == 404) {
+        // Endpoint no existe, guardar localmente
+        final nuevaCampana = {
+          'id': DateTime.now().millisecondsSinceEpoch.toString(),
+          'nombre': _nombreCampanaCtrl.text.trim(),
+          'descripcion': _descripcionCtrl.text.trim(),
+          'vacunas': _vacunasSeleccionadasCampana,
+          'fechaInicio': _fechaInicio.toIso8601String(),
+          'activa': true,
+        };
+        setState(() {
+          _campanas.add(nuevaCampana);
+          _campanaActivaId = nuevaCampana['id'] as String;
+          _campanaActivaNombre = nuevaCampana['nombre'] as String;
+        });
+        _mostrarExito('Campaña creada localmente (modo sin conexión)');
+        _nombreCampanaCtrl.clear();
+        _descripcionCtrl.clear();
+        setState(() => _vacunasSeleccionadasCampana = []);
       } else {
         _mostrarError('Error al crear campaña: ${response.statusCode}');
       }
     } catch (e) {
-      _mostrarError('Error de conexión: $e');
+      // Error de conexión, guardar localmente
+      print('⚠️ Sin conexión, guardando campaña localmente: $e');
+      final nuevaCampana = {
+        'id': DateTime.now().millisecondsSinceEpoch.toString(),
+        'nombre': _nombreCampanaCtrl.text.trim(),
+        'descripcion': _descripcionCtrl.text.trim(),
+        'vacunas': _vacunasSeleccionadasCampana,
+        'fechaInicio': _fechaInicio.toIso8601String(),
+        'activa': true,
+      };
+      setState(() {
+        _campanas.add(nuevaCampana);
+        _campanaActivaId = nuevaCampana['id'] as String;
+        _campanaActivaNombre = nuevaCampana['nombre'] as String;
+      });
+      _mostrarExito('Campaña creada localmente (sin conexión al servidor)');
+      _nombreCampanaCtrl.clear();
+      _descripcionCtrl.clear();
+      setState(() => _vacunasSeleccionadasCampana = []);
     } finally {
       setState(() => _isCreatingCampaign = false);
     }
@@ -178,6 +222,10 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
       _mostrarError('Ingresa la matrícula del estudiante');
       return;
     }
+    if (_vacunaSeleccionada == null) {
+      _mostrarError('Selecciona la vacuna a aplicar');
+      return;
+    }
 
     setState(() => _isCreatingRecord = true);
     try {
@@ -189,28 +237,80 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
           'campanaNombre': _campanaActivaNombre ?? '',
           'matricula': _matriculaCtrl.text.trim(),
           'nombreEstudiante': _nombreEstudianteCtrl.text.trim(),
-          'vacuna': _vacunaSeleccionada ?? _campanaActivaNombre ?? '',
+          'vacuna': _vacunaSeleccionada!,
           'dosis': _dosisSeleccionada,
           'lote': _loteCtrl.text.trim(),
           'aplicadoPor': _aplicadoPorCtrl.text.trim(),
           'observaciones': _observacionesCtrl.text.trim(),
           'fechaAplicacion': _fechaAplicacion.toIso8601String(),
         }),
-      );
+      ).timeout(const Duration(seconds: 10));
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         _mostrarExito('Vacunación registrada exitosamente');
         _matriculaCtrl.clear();
         _nombreEstudianteCtrl.clear();
         _loteCtrl.clear();
         _observacionesCtrl.clear();
-        setState(() => _dosisSeleccionada = 1);
+        setState(() {
+          _dosisSeleccionada = 1;
+          _vacunaSeleccionada = null;
+        });
         await _cargarRegistrosCampana(_campanaActivaId!);
+      } else if (response.statusCode == 404) {
+        // Endpoint no existe, guardar localmente
+        final nuevoRegistro = {
+          'id': DateTime.now().millisecondsSinceEpoch.toString(),
+          'campanaId': _campanaActivaId!,
+          'campanaNombre': _campanaActivaNombre ?? '',
+          'matricula': _matriculaCtrl.text.trim(),
+          'nombreEstudiante': _nombreEstudianteCtrl.text.trim(),
+          'vacuna': _vacunaSeleccionada!,
+          'dosis': _dosisSeleccionada,
+          'lote': _loteCtrl.text.trim(),
+          'aplicadoPor': _aplicadoPorCtrl.text.trim(),
+          'observaciones': _observacionesCtrl.text.trim(),
+          'fechaAplicacion': _fechaAplicacion.toIso8601String(),
+        };
+        setState(() => _registros.add(nuevoRegistro));
+        _mostrarExito('Vacunación registrada localmente (modo sin conexión)');
+        _matriculaCtrl.clear();
+        _nombreEstudianteCtrl.clear();
+        _loteCtrl.clear();
+        _observacionesCtrl.clear();
+        setState(() {
+          _dosisSeleccionada = 1;
+          _vacunaSeleccionada = null;
+        });
       } else {
         _mostrarError('Error al registrar vacunación: ${response.statusCode}');
       }
     } catch (e) {
-      _mostrarError('Error de conexión: $e');
+      // Error de conexión, guardar localmente
+      print('⚠️ Sin conexión, guardando registro localmente: $e');
+      final nuevoRegistro = {
+        'id': DateTime.now().millisecondsSinceEpoch.toString(),
+        'campanaId': _campanaActivaId!,
+        'campanaNombre': _campanaActivaNombre ?? '',
+        'matricula': _matriculaCtrl.text.trim(),
+        'nombreEstudiante': _nombreEstudianteCtrl.text.trim(),
+        'vacuna': _vacunaSeleccionada!,
+        'dosis': _dosisSeleccionada,
+        'lote': _loteCtrl.text.trim(),
+        'aplicadoPor': _aplicadoPorCtrl.text.trim(),
+        'observaciones': _observacionesCtrl.text.trim(),
+        'fechaAplicacion': _fechaAplicacion.toIso8601String(),
+      };
+      setState(() => _registros.add(nuevoRegistro));
+      _mostrarExito('Vacunación registrada localmente (sin conexión al servidor)');
+      _matriculaCtrl.clear();
+      _nombreEstudianteCtrl.clear();
+      _loteCtrl.clear();
+      _observacionesCtrl.clear();
+      setState(() {
+        _dosisSeleccionada = 1;
+        _vacunaSeleccionada = null;
+      });
     } finally {
       setState(() => _isCreatingRecord = false);
     }
@@ -427,20 +527,78 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
               
               const SizedBox(height: 16),
               
-              DropdownButtonFormField<String>(
-                value: _vacunaSeleccionada,
-                decoration: const InputDecoration(
-                  labelText: 'Vacuna',
-                  prefixIcon: Icon(Icons.vaccines),
+              // Selector de múltiples vacunas
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.vaccines, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Vacunas de la Campaña',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Selecciona una o más vacunas:',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _vacunasDisponibles.map((vacuna) {
+                          final seleccionada = _vacunasSeleccionadasCampana.contains(vacuna);
+                          return FilterChip(
+                            label: Text(vacuna),
+                            selected: seleccionada,
+                            onSelected: (selected) {
+                              setState(() {
+                                if (selected) {
+                                  _vacunasSeleccionadasCampana.add(vacuna);
+                                } else {
+                                  _vacunasSeleccionadasCampana.remove(vacuna);
+                                }
+                              });
+                            },
+                            avatar: seleccionada
+                                ? const Icon(Icons.check_circle, size: 18)
+                                : null,
+                          );
+                        }).toList(),
+                      ),
+                      if (_vacunasSeleccionadasCampana.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            'Selecciona al menos una vacuna',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      if (_vacunasSeleccionadasCampana.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            '${_vacunasSeleccionadasCampana.length} vacuna(s) seleccionada(s)',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-                items: _vacunasDisponibles.map((vacuna) {
-                  return DropdownMenuItem(
-                    value: vacuna,
-                    child: Text(vacuna),
-                  );
-                }).toList(),
-                onChanged: (value) => setState(() => _vacunaSeleccionada = value),
-                validator: (v) => v == null ? 'Selecciona una vacuna' : null,
               ),
               
               const SizedBox(height: 16),
@@ -517,10 +675,29 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
             const SizedBox(height: 16),
             
             if (_campanas.isEmpty)
-              const Center(
+              Card(
                 child: Padding(
-                  padding: EdgeInsets.all(20.0),
-                  child: Text('No hay campañas creadas'),
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.vaccines_outlined,
+                        size: 64,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No hay campañas registradas',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Crea tu primera campaña de vacunación en la sección de arriba',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
                 ),
               )
             else
@@ -545,8 +722,18 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
                             isSelected ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
-                    subtitle: Text(
-                      '${campana['vacuna'] ?? ''} • ${campana['totalAplicadas'] ?? 0} aplicadas',
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (campana['vacunas'] != null && campana['vacunas'] is List)
+                          Text('${(campana['vacunas'] as List).join(', ')}')
+                        else if (campana['vacuna'] != null)
+                          Text('${campana['vacuna']}'),
+                        Text(
+                          '${campana['totalAplicadas'] ?? 0} aplicadas',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ],
                     ),
                     trailing: campana['activa'] == true
                         ? Chip(
@@ -629,6 +816,50 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
             ),
             
             const SizedBox(height: 16),
+            
+            // Selector de vacuna de la campaña
+            if (_campanaActivaId != null)
+              Builder(
+                builder: (context) {
+                  // Obtener vacunas de la campaña activa
+                  final campanaActiva = _campanas.firstWhere(
+                    (c) => c['id'] == _campanaActivaId,
+                    orElse: () => {},
+                  );
+                  
+                  List<String> vacunasCampana = [];
+                  if (campanaActiva['vacunas'] != null && campanaActiva['vacunas'] is List) {
+                    vacunasCampana = List<String>.from(campanaActiva['vacunas']);
+                  } else if (campanaActiva['vacuna'] != null) {
+                    vacunasCampana = [campanaActiva['vacuna'] as String];
+                  }
+                  
+                  if (vacunasCampana.isEmpty) {
+                    return const Text('Esta campaña no tiene vacunas asignadas');
+                  }
+                  
+                  return Column(
+                    children: [
+                      DropdownButtonFormField<String>(
+                        value: _vacunaSeleccionada,
+                        decoration: const InputDecoration(
+                          labelText: 'Vacuna a Aplicar',
+                          prefixIcon: Icon(Icons.vaccines),
+                        ),
+                        items: vacunasCampana.map((vacuna) {
+                          return DropdownMenuItem(
+                            value: vacuna,
+                            child: Text(vacuna),
+                          );
+                        }).toList(),
+                        onChanged: (value) => setState(() => _vacunaSeleccionada = value),
+                        validator: (v) => v == null ? 'Selecciona la vacuna' : null,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  );
+                },
+              ),
             
             Row(
               children: [
