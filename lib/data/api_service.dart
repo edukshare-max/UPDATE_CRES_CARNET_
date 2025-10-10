@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'cache_service.dart';
+import 'auth_service.dart' as auth;
 
 /// URL del backend, configurable via environment o fallback
 const String baseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'https://fastapi-backend-o7ks.onrender.com');
@@ -659,9 +660,19 @@ static Future<Map<String, dynamic>?> getCitaById(String citaId) async {
       print('[VACUNACION] Guardando aplicación: $idAplicacion');
       print('[VACUNACION] Payload: ${jsonEncode(payload)}');
       
+      // Obtener token JWT
+      final token = await auth.AuthService.getToken();
+      if (token == null) {
+        print('[VACUNACION] ⚠️ No hay token JWT, guardando solo localmente');
+        return false;
+      }
+      
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
         body: jsonEncode(payload),
       ).timeout(_normalTimeout);
       
@@ -670,6 +681,9 @@ static Future<Map<String, dynamic>?> getCitaById(String citaId) async {
       if (response.statusCode == 200 || response.statusCode == 201) {
         print('[VACUNACION] ✅ Guardado exitoso en Cosmos DB');
         return true;
+      } else if (response.statusCode == 401) {
+        print('[VACUNACION] ⚠️ Token expirado o inválido, se guardó solo localmente');
+        return false;
       } else if (response.statusCode == 404) {
         print('[VACUNACION] ⚠️ Endpoint no existe, se guardó solo localmente');
         return false;
@@ -686,8 +700,18 @@ static Future<Map<String, dynamic>?> getCitaById(String citaId) async {
   /// Obtiene el historial de vacunación de un estudiante
   static Future<List<Map<String, dynamic>>> getHistorialVacunacion(String matricula) async {
     try {
+      // Obtener token JWT
+      final token = await auth.AuthService.getToken();
+      if (token == null) {
+        print('[VACUNACION] ⚠️ No hay token JWT para obtener historial');
+        return [];
+      }
+      
       final url = Uri.parse('$baseUrl/carnet/$matricula/vacunacion');
-      final response = await http.get(url).timeout(_normalTimeout);
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'Bearer $token'},
+      ).timeout(_normalTimeout);
       
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

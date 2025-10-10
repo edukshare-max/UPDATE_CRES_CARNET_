@@ -27,13 +27,17 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
   final _loteCtrl = TextEditingController();
   final _aplicadoPorCtrl = TextEditingController();
   final _observacionesCtrl = TextEditingController();
+  final _otraVacunaCtrl = TextEditingController(); // Para vacuna manual
   
   // Base de datos local para sincronización
   late DB.AppDatabase _db;
 
   // Variables de estado
-  String? _vacunaSeleccionada; // Para registrar aplicación individual
+  String? _vacunaSeleccionada; // DEPRECATED - ya no se usa
   List<String> _vacunasSeleccionadasCampana = []; // Para crear campaña (múltiples)
+  List<String> _vacunasSeleccionadasAplicacion = []; // Para aplicar a estudiante (múltiples)
+  bool _agregarOtraVacuna = false; // Si quiere agregar vacuna manual
+  bool _mostrarCampoVacunaPersonalizada = false; // Para agregar vacuna personalizada en campaña
   int _dosisSeleccionada = 1;
   DateTime _fechaInicio = DateTime.now();
   DateTime _fechaAplicacion = DateTime.now();
@@ -243,9 +247,10 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
     }
   }
 
-  /// Registrar aplicación de vacuna
+  /// Registrar aplicación de vacunas
   /// SIEMPRE guarda en el expediente del estudiante (Cosmos DB)
   /// Además guarda localmente para la lista de la campaña
+  /// Ahora soporta MÚLTIPLES vacunas en una sola visita
   Future<void> _registrarVacunacion() async {
     if (_campanaActivaId == null) {
       _mostrarError('Selecciona una campaña activa');
@@ -255,8 +260,8 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
       _mostrarError('Ingresa la matrícula del estudiante');
       return;
     }
-    if (_vacunaSeleccionada == null) {
-      _mostrarError('Selecciona la vacuna a aplicar');
+    if (_vacunasSeleccionadasAplicacion.isEmpty) {
+      _mostrarError('Selecciona al menos una vacuna aplicada');
       return;
     }
 
@@ -264,7 +269,6 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
     
     final matricula = _matriculaCtrl.text.trim();
     final nombreEstudiante = _nombreEstudianteCtrl.text.trim();
-    final vacuna = _vacunaSeleccionada!;
     final dosis = _dosisSeleccionada;
     final lote = _loteCtrl.text.trim();
     final aplicadoPor = _aplicadoPorCtrl.text.trim();
@@ -272,90 +276,104 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
     final fechaAplicacion = _fechaAplicacion.toIso8601String();
     
     try {
-      // 🎯 PASO 1: Guardar en EXPEDIENTE del estudiante (Cosmos DB)
-      print('💉 Guardando aplicación en expediente de matrícula: $matricula');
-      final guardadoEnExpediente = await ApiService.guardarAplicacionVacuna(
-        matricula: matricula,
-        campana: _campanaActivaNombre ?? 'Campana',
-        vacuna: vacuna,
-        dosis: dosis,
-        fechaAplicacion: fechaAplicacion,
-        lote: lote,
-        aplicadoPor: aplicadoPor,
-        observaciones: observaciones,
-        nombreEstudiante: nombreEstudiante,
-      );
+      int exitosas = 0;
+      int fallos = 0;
       
-      if (guardadoEnExpediente) {
-        print('✅ Aplicación guardada en expediente del estudiante');
-      } else {
-        // 💾 Si no se pudo guardar en Cosmos DB, guardar en SQLite para sincronizar después
-        print('⚠️ Guardando en SQLite local para sincronización posterior...');
-        await _db.insertVacunacionPendiente(
-          DB.VacunacionesPendientesCompanion(
-            matricula: drift.Value(matricula),
-            nombreEstudiante: drift.Value(nombreEstudiante),
-            campana: drift.Value(_campanaActivaNombre ?? 'Campana'),
-            vacuna: drift.Value(vacuna),
-            dosis: drift.Value(dosis),
-            lote: drift.Value(lote),
-            aplicadoPor: drift.Value(aplicadoPor),
-            fechaAplicacion: drift.Value(fechaAplicacion),
-            observaciones: drift.Value(observaciones),
-            createdAt: drift.Value(DateTime.now()),
-            synced: drift.Value(false),
-          ),
+      // 🎯 ITERAR SOBRE CADA VACUNA SELECCIONADA
+      for (final vacuna in _vacunasSeleccionadasAplicacion) {
+        print('💉 Guardando $vacuna para $matricula');
+        
+        // PASO 1: Intentar guardar en EXPEDIENTE del estudiante (Cosmos DB)
+        final guardadoEnExpediente = await ApiService.guardarAplicacionVacuna(
+          matricula: matricula,
+          campana: _campanaActivaNombre ?? 'Campana',
+          vacuna: vacuna,
+          dosis: dosis,
+          fechaAplicacion: fechaAplicacion,
+          lote: lote,
+          aplicadoPor: aplicadoPor,
+          observaciones: observaciones,
+          nombreEstudiante: nombreEstudiante,
         );
-        print('💾 Guardado en SQLite local, se sincronizará cuando haya conexión');
-      }
-      
-      // 🎯 PASO 2: Intentar guardar en lista de registros de campaña (opcional)
-      try {
-        final response = await http.post(
-          Uri.parse('$_apiBaseUrl/vaccination-records/'),
-          headers: {'Content-Type': 'application/json'},
-          body: json.encode({
-            'campanaId': _campanaActivaId!,
-            'campanaNombre': _campanaActivaNombre ?? '',
-            'matricula': matricula,
-            'nombreEstudiante': nombreEstudiante,
-            'vacuna': vacuna,
-            'dosis': dosis,
-            'lote': lote,
-            'aplicadoPor': aplicadoPor,
-            'observaciones': observaciones,
-            'fechaAplicacion': fechaAplicacion,
-          }),
-        ).timeout(const Duration(seconds: 10));
-
-        if (response.statusCode == 200 || response.statusCode == 201) {
-          print('✅ También guardado en lista de campaña');
+        
+        if (guardadoEnExpediente) {
+          print('✅ $vacuna guardada en expediente (Cosmos DB)');
+          exitosas++;
+        } else {
+          print('⚠️ $vacuna NO se pudo guardar en nube, guardando en SQLite...');
+          fallos++;
         }
-      } catch (e) {
-        print('⚠️ Lista de campaña no disponible: $e');
+        
+        // SIEMPRE guardar en SQLite para sincronización (si no está en nube)
+        if (!guardadoEnExpediente) {
+          await _db.insertVacunacionPendiente(
+            DB.VacunacionesPendientesCompanion(
+              matricula: drift.Value(matricula),
+              nombreEstudiante: drift.Value(nombreEstudiante),
+              campana: drift.Value(_campanaActivaNombre ?? 'Campana'),
+              vacuna: drift.Value(vacuna),
+              dosis: drift.Value(dosis),
+              lote: drift.Value(lote),
+              aplicadoPor: drift.Value(aplicadoPor),
+              fechaAplicacion: drift.Value(fechaAplicacion),
+              observaciones: drift.Value(observaciones),
+              createdAt: drift.Value(DateTime.now()),
+              synced: drift.Value(false),
+            ),
+          );
+          print('💾 $vacuna guardada en SQLite para sincronización posterior');
+        }
+        
+        // PASO 2: Intentar guardar en lista de campaña (opcional)
+        try {
+          await http.post(
+            Uri.parse('$_apiBaseUrl/vaccination-records/'),
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({
+              'campanaId': _campanaActivaId!,
+              'campanaNombre': _campanaActivaNombre ?? '',
+              'matricula': matricula,
+              'nombreEstudiante': nombreEstudiante,
+              'vacuna': vacuna,
+              'dosis': dosis,
+              'lote': lote,
+              'aplicadoPor': aplicadoPor,
+              'observaciones': observaciones,
+              'fechaAplicacion': fechaAplicacion,
+            }),
+          ).timeout(const Duration(seconds: 10));
+        } catch (e) {
+          // Ignorar error, no es crítico
+        }
+        
+        // PASO 3: Guardar LOCALMENTE para la lista visual
+        final nuevoRegistro = {
+          'id': '${DateTime.now().millisecondsSinceEpoch}_${vacuna.hashCode}',
+          'campanaId': _campanaActivaId!,
+          'campanaNombre': _campanaActivaNombre ?? '',
+          'matricula': matricula,
+          'nombreEstudiante': nombreEstudiante,
+          'vacuna': vacuna,
+          'dosis': dosis,
+          'lote': lote,
+          'aplicadoPor': aplicadoPor,
+          'observaciones': observaciones,
+          'fechaAplicacion': fechaAplicacion,
+        };
+        setState(() => _registros.add(nuevoRegistro));
+        
+        // Pequeño delay entre vacunas para evitar race conditions
+        await Future.delayed(const Duration(milliseconds: 100));
       }
-      
-      // 🎯 PASO 3: Guardar LOCALMENTE para la lista visual
-      final nuevoRegistro = {
-        'id': DateTime.now().millisecondsSinceEpoch.toString(),
-        'campanaId': _campanaActivaId!,
-        'campanaNombre': _campanaActivaNombre ?? '',
-        'matricula': matricula,
-        'nombreEstudiante': nombreEstudiante,
-        'vacuna': vacuna,
-        'dosis': dosis,
-        'lote': lote,
-        'aplicadoPor': aplicadoPor,
-        'observaciones': observaciones,
-        'fechaAplicacion': fechaAplicacion,
-      };
-      setState(() => _registros.add(nuevoRegistro));
       
       // 🎉 Mostrar mensaje según resultado
-      if (guardadoEnExpediente) {
-        _mostrarExito('✅ Vacunación registrada en expediente del estudiante');
+      final totalVacunas = _vacunasSeleccionadasAplicacion.length;
+      if (exitosas == totalVacunas) {
+        _mostrarExito('✅ $totalVacunas vacuna(s) registradas en expediente del estudiante');
+      } else if (fallos == totalVacunas) {
+        _mostrarExito('💾 $totalVacunas vacuna(s) guardadas localmente - se sincronizarán cuando haya conexión');
       } else {
-        _mostrarExito('💾 Guardada localmente - se sincronizará cuando haya conexión');
+        _mostrarExito('⚠️ $exitosas en expediente, $fallos locales (se sincronizarán después)');
       }
       
       // Limpiar formulario
@@ -365,7 +383,7 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
       _observacionesCtrl.clear();
       setState(() {
         _dosisSeleccionada = 1;
-        _vacunaSeleccionada = null;
+        _vacunasSeleccionadasAplicacion = [];
       });
       
     } catch (e) {
@@ -698,6 +716,86 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
                             ),
                           ),
                         ),
+                      
+                      // Opción para agregar vacuna personalizada
+                      const SizedBox(height: 16),
+                      const Divider(),
+                      CheckboxListTile(
+                        title: const Text('¿Agregar vacuna personalizada?'),
+                        subtitle: const Text('Si la vacuna no está en la lista'),
+                        value: _mostrarCampoVacunaPersonalizada,
+                        onChanged: (value) {
+                          setState(() {
+                            _mostrarCampoVacunaPersonalizada = value ?? false;
+                          });
+                        },
+                      ),
+                      
+                      if (_mostrarCampoVacunaPersonalizada)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _otraVacunaCtrl,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Nombre de la vacuna',
+                                        hintText: 'Ej: Vacuna Meningocócica B',
+                                        border: OutlineInputBorder(),
+                                        isDense: true,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  ElevatedButton.icon(
+                                    onPressed: () {
+                                      final vacuna = _otraVacunaCtrl.text.trim();
+                                      if (vacuna.isEmpty) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Ingresa el nombre de la vacuna'),
+                                            backgroundColor: Colors.orange,
+                                          ),
+                                        );
+                                        return;
+                                      }
+                                      
+                                      if (_vacunasSeleccionadasCampana.contains(vacuna)) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Esta vacuna ya está agregada'),
+                                            backgroundColor: Colors.orange,
+                                          ),
+                                        );
+                                        return;
+                                      }
+                                      
+                                      setState(() {
+                                        _vacunasSeleccionadasCampana.add(vacuna);
+                                        _otraVacunaCtrl.clear();
+                                      });
+                                      
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Vacuna "$vacuna" agregada'),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.add),
+                                    label: const Text('Agregar'),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -725,24 +823,103 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
               
               const SizedBox(height: 24),
               
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _isCreatingCampaign ? null : _crearCampana,
-                  icon: _isCreatingCampaign
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.add),
-                  label: Text(_isCreatingCampaign
-                      ? 'Creando...'
-                      : 'Crear Campaña'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.purple[700],
+              // Botones de acción
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _isCreatingCampaign ? null : () async {
+                        // Verificar si hay datos para limpiar
+                        if (_nombreCampanaCtrl.text.isEmpty && 
+                            _descripcionCtrl.text.isEmpty && 
+                            _vacunasSeleccionadasCampana.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('El formulario ya está vacío'),
+                              backgroundColor: Colors.orange,
+                            ),
+                          );
+                          return;
+                        }
+                        
+                        // Mostrar confirmación
+                        final confirmar = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Row(
+                              children: [
+                                Icon(Icons.warning_amber, color: Colors.orange),
+                                SizedBox(width: 12),
+                                Text('¿Limpiar formulario?'),
+                              ],
+                            ),
+                            content: const Text(
+                              '¿Estás seguro de que deseas limpiar todos los campos? '
+                              'Esta acción no se puede deshacer.',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(false),
+                                child: const Text('Cancelar'),
+                              ),
+                              FilledButton(
+                                onPressed: () => Navigator.of(context).pop(true),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: Colors.orange,
+                                ),
+                                child: const Text('Sí, limpiar'),
+                              ),
+                            ],
+                          ),
+                        );
+                        
+                        if (confirmar == true) {
+                          setState(() {
+                            _nombreCampanaCtrl.clear();
+                            _descripcionCtrl.clear();
+                            _vacunasSeleccionadasCampana.clear();
+                            _otraVacunaCtrl.clear();
+                            _mostrarCampoVacunaPersonalizada = false;
+                            _fechaInicio = DateTime.now();
+                          });
+                          
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('✓ Formulario limpiado'),
+                              backgroundColor: Colors.green,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.clear_all),
+                      label: const Text('Limpiar'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.orange[700],
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: FilledButton.icon(
+                      onPressed: _isCreatingCampaign ? null : _crearCampana,
+                      icon: _isCreatingCampaign
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.add),
+                      label: Text(_isCreatingCampaign
+                          ? 'Creando...'
+                          : 'Crear Campaña'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.purple[700],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -919,7 +1096,7 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
             
             const SizedBox(height: 16),
             
-            // Selector de vacuna de la campaña
+            // Selector de vacunas de la campaña (MÚLTIPLE)
             if (_campanaActivaId != null)
               Builder(
                 builder: (context) {
@@ -940,28 +1117,85 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
                     return const Text('Esta campaña no tiene vacunas asignadas');
                   }
                   
-                  return Column(
-                    children: [
-                      DropdownButtonFormField<String>(
-                        value: _vacunaSeleccionada,
-                        decoration: const InputDecoration(
-                          labelText: 'Vacuna a Aplicar',
-                          prefixIcon: Icon(Icons.vaccines),
-                        ),
-                        items: vacunasCampana.map((vacuna) {
-                          return DropdownMenuItem(
-                            value: vacuna,
-                            child: Text(vacuna),
-                          );
-                        }).toList(),
-                        onChanged: (value) => setState(() => _vacunaSeleccionada = value),
-                        validator: (v) => v == null ? 'Selecciona la vacuna' : null,
+                  return Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.vaccines, size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Vacunas Aplicadas al Estudiante',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Selecciona todas las vacunas aplicadas en esta visita:',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: vacunasCampana.map((vacuna) {
+                              final seleccionada = _vacunasSeleccionadasAplicacion.contains(vacuna);
+                              return FilterChip(
+                                label: Text(vacuna),
+                                selected: seleccionada,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    if (selected) {
+                                      _vacunasSeleccionadasAplicacion.add(vacuna);
+                                    } else {
+                                      _vacunasSeleccionadasAplicacion.remove(vacuna);
+                                    }
+                                  });
+                                },
+                                avatar: seleccionada
+                                    ? const Icon(Icons.check_circle, size: 18)
+                                    : null,
+                                selectedColor: Colors.green[100],
+                              );
+                            }).toList(),
+                          ),
+                          if (_vacunasSeleccionadasAplicacion.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                'Selecciona al menos una vacuna aplicada',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          if (_vacunasSeleccionadasAplicacion.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                '${_vacunasSeleccionadasAplicacion.length} vacuna(s) seleccionada(s)',
+                                style: TextStyle(
+                                  color: Colors.green[700],
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                    ],
+                    ),
                   );
                 },
               ),
+            
+            const SizedBox(height: 16),
             
             Row(
               children: [
