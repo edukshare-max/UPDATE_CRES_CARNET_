@@ -3,8 +3,12 @@ import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
+import 'package:drift/drift.dart' as drift;
 import '../ui/uagro_theme.dart';
 import '../utils/vaccination_pdf_generator.dart';
+import '../data/api_service.dart';
+import '../data/db.dart' as DB;
+import '../data/sync_vacunaciones.dart';
 
 /// Pantalla de gestión de campañas de vacunación
 class VaccinationScreen extends StatefulWidget {
@@ -23,6 +27,9 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
   final _loteCtrl = TextEditingController();
   final _aplicadoPorCtrl = TextEditingController();
   final _observacionesCtrl = TextEditingController();
+  
+  // Base de datos local para sincronización
+  late DB.AppDatabase _db;
 
   // Variables de estado
   String? _vacunaSeleccionada; // Para registrar aplicación individual
@@ -59,11 +66,14 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
   @override
   void initState() {
     super.initState();
+    _db = DB.AppDatabase();
     _cargarCampanas();
+    _sincronizarPendientes(); // Intentar sincronizar al inicio
   }
 
   @override
   void dispose() {
+    _db.close();
     _nombreCampanaCtrl.dispose();
     _descripcionCtrl.dispose();
     _matriculaCtrl.dispose();
@@ -79,6 +89,25 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
     const envUrl = String.fromEnvironment('API_BASE_URL',
         defaultValue: 'https://fastapi-backend-o7ks.onrender.com');
     return envUrl;
+  }
+
+  /// Sincronizar vacunaciones pendientes
+  Future<void> _sincronizarPendientes() async {
+    try {
+      final pendientes = await _db.getPendingVacunaciones();
+      if (pendientes.isNotEmpty) {
+        print('🔄 Intentando sincronizar ${pendientes.length} vacunaciones pendientes...');
+        await syncVacunacionesPendientes(_db);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ ${pendientes.length} vacunaciones sincronizadas'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('⚠️ No se pudieron sincronizar vacunaciones pendientes: $e');
+    }
   }
 
   /// Cargar campañas desde el backend
@@ -215,6 +244,8 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
   }
 
   /// Registrar aplicación de vacuna
+  /// SIEMPRE guarda en el expediente del estudiante (Cosmos DB)
+  /// Además guarda localmente para la lista de la campaña
   Future<void> _registrarVacunacion() async {
     if (_campanaActivaId == null) {
       _mostrarError('Selecciona una campaña activa');
@@ -230,83 +261,104 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
     }
 
     setState(() => _isCreatingRecord = true);
+    
+    final matricula = _matriculaCtrl.text.trim();
+    final nombreEstudiante = _nombreEstudianteCtrl.text.trim();
+    final vacuna = _vacunaSeleccionada!;
+    final dosis = _dosisSeleccionada;
+    final lote = _loteCtrl.text.trim();
+    final aplicadoPor = _aplicadoPorCtrl.text.trim();
+    final observaciones = _observacionesCtrl.text.trim();
+    final fechaAplicacion = _fechaAplicacion.toIso8601String();
+    
     try {
-      final response = await http.post(
-        Uri.parse('$_apiBaseUrl/vaccination-records/'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'campanaId': _campanaActivaId!,
-          'campanaNombre': _campanaActivaNombre ?? '',
-          'matricula': _matriculaCtrl.text.trim(),
-          'nombreEstudiante': _nombreEstudianteCtrl.text.trim(),
-          'vacuna': _vacunaSeleccionada!,
-          'dosis': _dosisSeleccionada,
-          'lote': _loteCtrl.text.trim(),
-          'aplicadoPor': _aplicadoPorCtrl.text.trim(),
-          'observaciones': _observacionesCtrl.text.trim(),
-          'fechaAplicacion': _fechaAplicacion.toIso8601String(),
-        }),
-      ).timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        _mostrarExito('Vacunación registrada exitosamente');
-        _matriculaCtrl.clear();
-        _nombreEstudianteCtrl.clear();
-        _loteCtrl.clear();
-        _observacionesCtrl.clear();
-        setState(() {
-          _dosisSeleccionada = 1;
-          _vacunaSeleccionada = null;
-        });
-        await _cargarRegistrosCampana(_campanaActivaId!);
-      } else if (response.statusCode == 404 || response.statusCode == 422 || 
-                 response.statusCode >= 500) {
-        // Endpoint no existe, datos incompatibles o error del servidor → guardar localmente
-        print('⚠️ Backend error ${response.statusCode}, usando modo local');
-        final nuevoRegistro = {
-          'id': DateTime.now().millisecondsSinceEpoch.toString(),
-          'campanaId': _campanaActivaId!,
-          'campanaNombre': _campanaActivaNombre ?? '',
-          'matricula': _matriculaCtrl.text.trim(),
-          'nombreEstudiante': _nombreEstudianteCtrl.text.trim(),
-          'vacuna': _vacunaSeleccionada!,
-          'dosis': _dosisSeleccionada,
-          'lote': _loteCtrl.text.trim(),
-          'aplicadoPor': _aplicadoPorCtrl.text.trim(),
-          'observaciones': _observacionesCtrl.text.trim(),
-          'fechaAplicacion': _fechaAplicacion.toIso8601String(),
-        };
-        setState(() => _registros.add(nuevoRegistro));
-        _mostrarExito('Vacunación registrada localmente (backend no compatible)');
-        _matriculaCtrl.clear();
-        _nombreEstudianteCtrl.clear();
-        _loteCtrl.clear();
-        _observacionesCtrl.clear();
-        setState(() {
-          _dosisSeleccionada = 1;
-          _vacunaSeleccionada = null;
-        });
+      // 🎯 PASO 1: Guardar en EXPEDIENTE del estudiante (Cosmos DB)
+      print('💉 Guardando aplicación en expediente de matrícula: $matricula');
+      final guardadoEnExpediente = await ApiService.guardarAplicacionVacuna(
+        matricula: matricula,
+        campana: _campanaActivaNombre ?? 'Campana',
+        vacuna: vacuna,
+        dosis: dosis,
+        fechaAplicacion: fechaAplicacion,
+        lote: lote,
+        aplicadoPor: aplicadoPor,
+        observaciones: observaciones,
+        nombreEstudiante: nombreEstudiante,
+      );
+      
+      if (guardadoEnExpediente) {
+        print('✅ Aplicación guardada en expediente del estudiante');
       } else {
-        _mostrarError('Error al registrar vacunación: ${response.statusCode}');
+        // 💾 Si no se pudo guardar en Cosmos DB, guardar en SQLite para sincronizar después
+        print('⚠️ Guardando en SQLite local para sincronización posterior...');
+        await _db.insertVacunacionPendiente(
+          DB.VacunacionesPendientesCompanion(
+            matricula: drift.Value(matricula),
+            nombreEstudiante: drift.Value(nombreEstudiante),
+            campana: drift.Value(_campanaActivaNombre ?? 'Campana'),
+            vacuna: drift.Value(vacuna),
+            dosis: drift.Value(dosis),
+            lote: drift.Value(lote),
+            aplicadoPor: drift.Value(aplicadoPor),
+            fechaAplicacion: drift.Value(fechaAplicacion),
+            observaciones: drift.Value(observaciones),
+            createdAt: drift.Value(DateTime.now()),
+            synced: drift.Value(false),
+          ),
+        );
+        print('💾 Guardado en SQLite local, se sincronizará cuando haya conexión');
       }
-    } catch (e) {
-      // Error de conexión, guardar localmente
-      print('⚠️ Sin conexión, guardando registro localmente: $e');
+      
+      // 🎯 PASO 2: Intentar guardar en lista de registros de campaña (opcional)
+      try {
+        final response = await http.post(
+          Uri.parse('$_apiBaseUrl/vaccination-records/'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'campanaId': _campanaActivaId!,
+            'campanaNombre': _campanaActivaNombre ?? '',
+            'matricula': matricula,
+            'nombreEstudiante': nombreEstudiante,
+            'vacuna': vacuna,
+            'dosis': dosis,
+            'lote': lote,
+            'aplicadoPor': aplicadoPor,
+            'observaciones': observaciones,
+            'fechaAplicacion': fechaAplicacion,
+          }),
+        ).timeout(const Duration(seconds: 10));
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          print('✅ También guardado en lista de campaña');
+        }
+      } catch (e) {
+        print('⚠️ Lista de campaña no disponible: $e');
+      }
+      
+      // 🎯 PASO 3: Guardar LOCALMENTE para la lista visual
       final nuevoRegistro = {
         'id': DateTime.now().millisecondsSinceEpoch.toString(),
         'campanaId': _campanaActivaId!,
         'campanaNombre': _campanaActivaNombre ?? '',
-        'matricula': _matriculaCtrl.text.trim(),
-        'nombreEstudiante': _nombreEstudianteCtrl.text.trim(),
-        'vacuna': _vacunaSeleccionada!,
-        'dosis': _dosisSeleccionada,
-        'lote': _loteCtrl.text.trim(),
-        'aplicadoPor': _aplicadoPorCtrl.text.trim(),
-        'observaciones': _observacionesCtrl.text.trim(),
-        'fechaAplicacion': _fechaAplicacion.toIso8601String(),
+        'matricula': matricula,
+        'nombreEstudiante': nombreEstudiante,
+        'vacuna': vacuna,
+        'dosis': dosis,
+        'lote': lote,
+        'aplicadoPor': aplicadoPor,
+        'observaciones': observaciones,
+        'fechaAplicacion': fechaAplicacion,
       };
       setState(() => _registros.add(nuevoRegistro));
-      _mostrarExito('Vacunación registrada localmente (sin conexión al servidor)');
+      
+      // 🎉 Mostrar mensaje según resultado
+      if (guardadoEnExpediente) {
+        _mostrarExito('✅ Vacunación registrada en expediente del estudiante');
+      } else {
+        _mostrarExito('💾 Guardada localmente - se sincronizará cuando haya conexión');
+      }
+      
+      // Limpiar formulario
       _matriculaCtrl.clear();
       _nombreEstudianteCtrl.clear();
       _loteCtrl.clear();
@@ -315,6 +367,10 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
         _dosisSeleccionada = 1;
         _vacunaSeleccionada = null;
       });
+      
+    } catch (e) {
+      print('❌ Error al registrar vacunación: $e');
+      _mostrarError('Error al registrar: $e');
     } finally {
       setState(() => _isCreatingRecord = false);
     }
@@ -439,6 +495,48 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
         title: const Text('Sistema de Vacunación'),
         backgroundColor: Colors.purple[700],
         actions: [
+          FutureBuilder<List<DB.VacunacionesPendiente>>(
+            future: _db.getPendingVacunaciones(),
+            builder: (context, snapshot) {
+              final pendientes = snapshot.data?.length ?? 0;
+              if (pendientes > 0) {
+                return Stack(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.cloud_upload),
+                      onPressed: _sincronizarPendientes,
+                      tooltip: 'Sincronizar pendientes',
+                    ),
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 18,
+                          minHeight: 18,
+                        ),
+                        child: Text(
+                          '$pendientes',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _cargarCampanas,

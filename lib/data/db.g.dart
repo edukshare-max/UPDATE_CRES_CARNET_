@@ -2021,18 +2021,623 @@ class CitasCompanion extends UpdateCompanion<Cita> {
   }
 }
 
+class $VacunacionesPendientesTable extends VacunacionesPendientes
+    with TableInfo<$VacunacionesPendientesTable, VacunacionesPendiente> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $VacunacionesPendientesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _matriculaMeta =
+      const VerificationMeta('matricula');
+  @override
+  late final GeneratedColumn<String> matricula = GeneratedColumn<String>(
+      'matricula', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _nombreEstudianteMeta =
+      const VerificationMeta('nombreEstudiante');
+  @override
+  late final GeneratedColumn<String> nombreEstudiante = GeneratedColumn<String>(
+      'nombre_estudiante', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _campanaMeta =
+      const VerificationMeta('campana');
+  @override
+  late final GeneratedColumn<String> campana = GeneratedColumn<String>(
+      'campana', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _vacunaMeta = const VerificationMeta('vacuna');
+  @override
+  late final GeneratedColumn<String> vacuna = GeneratedColumn<String>(
+      'vacuna', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _dosisMeta = const VerificationMeta('dosis');
+  @override
+  late final GeneratedColumn<int> dosis = GeneratedColumn<int>(
+      'dosis', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _loteMeta = const VerificationMeta('lote');
+  @override
+  late final GeneratedColumn<String> lote = GeneratedColumn<String>(
+      'lote', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _aplicadoPorMeta =
+      const VerificationMeta('aplicadoPor');
+  @override
+  late final GeneratedColumn<String> aplicadoPor = GeneratedColumn<String>(
+      'aplicado_por', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _fechaAplicacionMeta =
+      const VerificationMeta('fechaAplicacion');
+  @override
+  late final GeneratedColumn<String> fechaAplicacion = GeneratedColumn<String>(
+      'fecha_aplicacion', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _observacionesMeta =
+      const VerificationMeta('observaciones');
+  @override
+  late final GeneratedColumn<String> observaciones = GeneratedColumn<String>(
+      'observaciones', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _syncedMeta = const VerificationMeta('synced');
+  @override
+  late final GeneratedColumn<bool> synced = GeneratedColumn<bool>(
+      'synced', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("synced" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        matricula,
+        nombreEstudiante,
+        campana,
+        vacuna,
+        dosis,
+        lote,
+        aplicadoPor,
+        fechaAplicacion,
+        observaciones,
+        createdAt,
+        synced
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'vacunaciones_pendientes';
+  @override
+  VerificationContext validateIntegrity(
+      Insertable<VacunacionesPendiente> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('matricula')) {
+      context.handle(_matriculaMeta,
+          matricula.isAcceptableOrUnknown(data['matricula']!, _matriculaMeta));
+    } else if (isInserting) {
+      context.missing(_matriculaMeta);
+    }
+    if (data.containsKey('nombre_estudiante')) {
+      context.handle(
+          _nombreEstudianteMeta,
+          nombreEstudiante.isAcceptableOrUnknown(
+              data['nombre_estudiante']!, _nombreEstudianteMeta));
+    }
+    if (data.containsKey('campana')) {
+      context.handle(_campanaMeta,
+          campana.isAcceptableOrUnknown(data['campana']!, _campanaMeta));
+    } else if (isInserting) {
+      context.missing(_campanaMeta);
+    }
+    if (data.containsKey('vacuna')) {
+      context.handle(_vacunaMeta,
+          vacuna.isAcceptableOrUnknown(data['vacuna']!, _vacunaMeta));
+    } else if (isInserting) {
+      context.missing(_vacunaMeta);
+    }
+    if (data.containsKey('dosis')) {
+      context.handle(
+          _dosisMeta, dosis.isAcceptableOrUnknown(data['dosis']!, _dosisMeta));
+    } else if (isInserting) {
+      context.missing(_dosisMeta);
+    }
+    if (data.containsKey('lote')) {
+      context.handle(
+          _loteMeta, lote.isAcceptableOrUnknown(data['lote']!, _loteMeta));
+    }
+    if (data.containsKey('aplicado_por')) {
+      context.handle(
+          _aplicadoPorMeta,
+          aplicadoPor.isAcceptableOrUnknown(
+              data['aplicado_por']!, _aplicadoPorMeta));
+    }
+    if (data.containsKey('fecha_aplicacion')) {
+      context.handle(
+          _fechaAplicacionMeta,
+          fechaAplicacion.isAcceptableOrUnknown(
+              data['fecha_aplicacion']!, _fechaAplicacionMeta));
+    } else if (isInserting) {
+      context.missing(_fechaAplicacionMeta);
+    }
+    if (data.containsKey('observaciones')) {
+      context.handle(
+          _observacionesMeta,
+          observaciones.isAcceptableOrUnknown(
+              data['observaciones']!, _observacionesMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('synced')) {
+      context.handle(_syncedMeta,
+          synced.isAcceptableOrUnknown(data['synced']!, _syncedMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  VacunacionesPendiente map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return VacunacionesPendiente(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      matricula: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}matricula'])!,
+      nombreEstudiante: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}nombre_estudiante']),
+      campana: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}campana'])!,
+      vacuna: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}vacuna'])!,
+      dosis: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}dosis'])!,
+      lote: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}lote']),
+      aplicadoPor: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}aplicado_por']),
+      fechaAplicacion: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}fecha_aplicacion'])!,
+      observaciones: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}observaciones']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      synced: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}synced'])!,
+    );
+  }
+
+  @override
+  $VacunacionesPendientesTable createAlias(String alias) {
+    return $VacunacionesPendientesTable(attachedDatabase, alias);
+  }
+}
+
+class VacunacionesPendiente extends DataClass
+    implements Insertable<VacunacionesPendiente> {
+  final int id;
+  final String matricula;
+  final String? nombreEstudiante;
+  final String campana;
+  final String vacuna;
+  final int dosis;
+  final String? lote;
+  final String? aplicadoPor;
+  final String fechaAplicacion;
+  final String? observaciones;
+  final DateTime createdAt;
+  final bool synced;
+  const VacunacionesPendiente(
+      {required this.id,
+      required this.matricula,
+      this.nombreEstudiante,
+      required this.campana,
+      required this.vacuna,
+      required this.dosis,
+      this.lote,
+      this.aplicadoPor,
+      required this.fechaAplicacion,
+      this.observaciones,
+      required this.createdAt,
+      required this.synced});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['matricula'] = Variable<String>(matricula);
+    if (!nullToAbsent || nombreEstudiante != null) {
+      map['nombre_estudiante'] = Variable<String>(nombreEstudiante);
+    }
+    map['campana'] = Variable<String>(campana);
+    map['vacuna'] = Variable<String>(vacuna);
+    map['dosis'] = Variable<int>(dosis);
+    if (!nullToAbsent || lote != null) {
+      map['lote'] = Variable<String>(lote);
+    }
+    if (!nullToAbsent || aplicadoPor != null) {
+      map['aplicado_por'] = Variable<String>(aplicadoPor);
+    }
+    map['fecha_aplicacion'] = Variable<String>(fechaAplicacion);
+    if (!nullToAbsent || observaciones != null) {
+      map['observaciones'] = Variable<String>(observaciones);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['synced'] = Variable<bool>(synced);
+    return map;
+  }
+
+  VacunacionesPendientesCompanion toCompanion(bool nullToAbsent) {
+    return VacunacionesPendientesCompanion(
+      id: Value(id),
+      matricula: Value(matricula),
+      nombreEstudiante: nombreEstudiante == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nombreEstudiante),
+      campana: Value(campana),
+      vacuna: Value(vacuna),
+      dosis: Value(dosis),
+      lote: lote == null && nullToAbsent ? const Value.absent() : Value(lote),
+      aplicadoPor: aplicadoPor == null && nullToAbsent
+          ? const Value.absent()
+          : Value(aplicadoPor),
+      fechaAplicacion: Value(fechaAplicacion),
+      observaciones: observaciones == null && nullToAbsent
+          ? const Value.absent()
+          : Value(observaciones),
+      createdAt: Value(createdAt),
+      synced: Value(synced),
+    );
+  }
+
+  factory VacunacionesPendiente.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return VacunacionesPendiente(
+      id: serializer.fromJson<int>(json['id']),
+      matricula: serializer.fromJson<String>(json['matricula']),
+      nombreEstudiante: serializer.fromJson<String?>(json['nombreEstudiante']),
+      campana: serializer.fromJson<String>(json['campana']),
+      vacuna: serializer.fromJson<String>(json['vacuna']),
+      dosis: serializer.fromJson<int>(json['dosis']),
+      lote: serializer.fromJson<String?>(json['lote']),
+      aplicadoPor: serializer.fromJson<String?>(json['aplicadoPor']),
+      fechaAplicacion: serializer.fromJson<String>(json['fechaAplicacion']),
+      observaciones: serializer.fromJson<String?>(json['observaciones']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      synced: serializer.fromJson<bool>(json['synced']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'matricula': serializer.toJson<String>(matricula),
+      'nombreEstudiante': serializer.toJson<String?>(nombreEstudiante),
+      'campana': serializer.toJson<String>(campana),
+      'vacuna': serializer.toJson<String>(vacuna),
+      'dosis': serializer.toJson<int>(dosis),
+      'lote': serializer.toJson<String?>(lote),
+      'aplicadoPor': serializer.toJson<String?>(aplicadoPor),
+      'fechaAplicacion': serializer.toJson<String>(fechaAplicacion),
+      'observaciones': serializer.toJson<String?>(observaciones),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'synced': serializer.toJson<bool>(synced),
+    };
+  }
+
+  VacunacionesPendiente copyWith(
+          {int? id,
+          String? matricula,
+          Value<String?> nombreEstudiante = const Value.absent(),
+          String? campana,
+          String? vacuna,
+          int? dosis,
+          Value<String?> lote = const Value.absent(),
+          Value<String?> aplicadoPor = const Value.absent(),
+          String? fechaAplicacion,
+          Value<String?> observaciones = const Value.absent(),
+          DateTime? createdAt,
+          bool? synced}) =>
+      VacunacionesPendiente(
+        id: id ?? this.id,
+        matricula: matricula ?? this.matricula,
+        nombreEstudiante: nombreEstudiante.present
+            ? nombreEstudiante.value
+            : this.nombreEstudiante,
+        campana: campana ?? this.campana,
+        vacuna: vacuna ?? this.vacuna,
+        dosis: dosis ?? this.dosis,
+        lote: lote.present ? lote.value : this.lote,
+        aplicadoPor: aplicadoPor.present ? aplicadoPor.value : this.aplicadoPor,
+        fechaAplicacion: fechaAplicacion ?? this.fechaAplicacion,
+        observaciones:
+            observaciones.present ? observaciones.value : this.observaciones,
+        createdAt: createdAt ?? this.createdAt,
+        synced: synced ?? this.synced,
+      );
+  VacunacionesPendiente copyWithCompanion(
+      VacunacionesPendientesCompanion data) {
+    return VacunacionesPendiente(
+      id: data.id.present ? data.id.value : this.id,
+      matricula: data.matricula.present ? data.matricula.value : this.matricula,
+      nombreEstudiante: data.nombreEstudiante.present
+          ? data.nombreEstudiante.value
+          : this.nombreEstudiante,
+      campana: data.campana.present ? data.campana.value : this.campana,
+      vacuna: data.vacuna.present ? data.vacuna.value : this.vacuna,
+      dosis: data.dosis.present ? data.dosis.value : this.dosis,
+      lote: data.lote.present ? data.lote.value : this.lote,
+      aplicadoPor:
+          data.aplicadoPor.present ? data.aplicadoPor.value : this.aplicadoPor,
+      fechaAplicacion: data.fechaAplicacion.present
+          ? data.fechaAplicacion.value
+          : this.fechaAplicacion,
+      observaciones: data.observaciones.present
+          ? data.observaciones.value
+          : this.observaciones,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      synced: data.synced.present ? data.synced.value : this.synced,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VacunacionesPendiente(')
+          ..write('id: $id, ')
+          ..write('matricula: $matricula, ')
+          ..write('nombreEstudiante: $nombreEstudiante, ')
+          ..write('campana: $campana, ')
+          ..write('vacuna: $vacuna, ')
+          ..write('dosis: $dosis, ')
+          ..write('lote: $lote, ')
+          ..write('aplicadoPor: $aplicadoPor, ')
+          ..write('fechaAplicacion: $fechaAplicacion, ')
+          ..write('observaciones: $observaciones, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('synced: $synced')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      id,
+      matricula,
+      nombreEstudiante,
+      campana,
+      vacuna,
+      dosis,
+      lote,
+      aplicadoPor,
+      fechaAplicacion,
+      observaciones,
+      createdAt,
+      synced);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is VacunacionesPendiente &&
+          other.id == this.id &&
+          other.matricula == this.matricula &&
+          other.nombreEstudiante == this.nombreEstudiante &&
+          other.campana == this.campana &&
+          other.vacuna == this.vacuna &&
+          other.dosis == this.dosis &&
+          other.lote == this.lote &&
+          other.aplicadoPor == this.aplicadoPor &&
+          other.fechaAplicacion == this.fechaAplicacion &&
+          other.observaciones == this.observaciones &&
+          other.createdAt == this.createdAt &&
+          other.synced == this.synced);
+}
+
+class VacunacionesPendientesCompanion
+    extends UpdateCompanion<VacunacionesPendiente> {
+  final Value<int> id;
+  final Value<String> matricula;
+  final Value<String?> nombreEstudiante;
+  final Value<String> campana;
+  final Value<String> vacuna;
+  final Value<int> dosis;
+  final Value<String?> lote;
+  final Value<String?> aplicadoPor;
+  final Value<String> fechaAplicacion;
+  final Value<String?> observaciones;
+  final Value<DateTime> createdAt;
+  final Value<bool> synced;
+  const VacunacionesPendientesCompanion({
+    this.id = const Value.absent(),
+    this.matricula = const Value.absent(),
+    this.nombreEstudiante = const Value.absent(),
+    this.campana = const Value.absent(),
+    this.vacuna = const Value.absent(),
+    this.dosis = const Value.absent(),
+    this.lote = const Value.absent(),
+    this.aplicadoPor = const Value.absent(),
+    this.fechaAplicacion = const Value.absent(),
+    this.observaciones = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.synced = const Value.absent(),
+  });
+  VacunacionesPendientesCompanion.insert({
+    this.id = const Value.absent(),
+    required String matricula,
+    this.nombreEstudiante = const Value.absent(),
+    required String campana,
+    required String vacuna,
+    required int dosis,
+    this.lote = const Value.absent(),
+    this.aplicadoPor = const Value.absent(),
+    required String fechaAplicacion,
+    this.observaciones = const Value.absent(),
+    required DateTime createdAt,
+    this.synced = const Value.absent(),
+  })  : matricula = Value(matricula),
+        campana = Value(campana),
+        vacuna = Value(vacuna),
+        dosis = Value(dosis),
+        fechaAplicacion = Value(fechaAplicacion),
+        createdAt = Value(createdAt);
+  static Insertable<VacunacionesPendiente> custom({
+    Expression<int>? id,
+    Expression<String>? matricula,
+    Expression<String>? nombreEstudiante,
+    Expression<String>? campana,
+    Expression<String>? vacuna,
+    Expression<int>? dosis,
+    Expression<String>? lote,
+    Expression<String>? aplicadoPor,
+    Expression<String>? fechaAplicacion,
+    Expression<String>? observaciones,
+    Expression<DateTime>? createdAt,
+    Expression<bool>? synced,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (matricula != null) 'matricula': matricula,
+      if (nombreEstudiante != null) 'nombre_estudiante': nombreEstudiante,
+      if (campana != null) 'campana': campana,
+      if (vacuna != null) 'vacuna': vacuna,
+      if (dosis != null) 'dosis': dosis,
+      if (lote != null) 'lote': lote,
+      if (aplicadoPor != null) 'aplicado_por': aplicadoPor,
+      if (fechaAplicacion != null) 'fecha_aplicacion': fechaAplicacion,
+      if (observaciones != null) 'observaciones': observaciones,
+      if (createdAt != null) 'created_at': createdAt,
+      if (synced != null) 'synced': synced,
+    });
+  }
+
+  VacunacionesPendientesCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? matricula,
+      Value<String?>? nombreEstudiante,
+      Value<String>? campana,
+      Value<String>? vacuna,
+      Value<int>? dosis,
+      Value<String?>? lote,
+      Value<String?>? aplicadoPor,
+      Value<String>? fechaAplicacion,
+      Value<String?>? observaciones,
+      Value<DateTime>? createdAt,
+      Value<bool>? synced}) {
+    return VacunacionesPendientesCompanion(
+      id: id ?? this.id,
+      matricula: matricula ?? this.matricula,
+      nombreEstudiante: nombreEstudiante ?? this.nombreEstudiante,
+      campana: campana ?? this.campana,
+      vacuna: vacuna ?? this.vacuna,
+      dosis: dosis ?? this.dosis,
+      lote: lote ?? this.lote,
+      aplicadoPor: aplicadoPor ?? this.aplicadoPor,
+      fechaAplicacion: fechaAplicacion ?? this.fechaAplicacion,
+      observaciones: observaciones ?? this.observaciones,
+      createdAt: createdAt ?? this.createdAt,
+      synced: synced ?? this.synced,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (matricula.present) {
+      map['matricula'] = Variable<String>(matricula.value);
+    }
+    if (nombreEstudiante.present) {
+      map['nombre_estudiante'] = Variable<String>(nombreEstudiante.value);
+    }
+    if (campana.present) {
+      map['campana'] = Variable<String>(campana.value);
+    }
+    if (vacuna.present) {
+      map['vacuna'] = Variable<String>(vacuna.value);
+    }
+    if (dosis.present) {
+      map['dosis'] = Variable<int>(dosis.value);
+    }
+    if (lote.present) {
+      map['lote'] = Variable<String>(lote.value);
+    }
+    if (aplicadoPor.present) {
+      map['aplicado_por'] = Variable<String>(aplicadoPor.value);
+    }
+    if (fechaAplicacion.present) {
+      map['fecha_aplicacion'] = Variable<String>(fechaAplicacion.value);
+    }
+    if (observaciones.present) {
+      map['observaciones'] = Variable<String>(observaciones.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (synced.present) {
+      map['synced'] = Variable<bool>(synced.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VacunacionesPendientesCompanion(')
+          ..write('id: $id, ')
+          ..write('matricula: $matricula, ')
+          ..write('nombreEstudiante: $nombreEstudiante, ')
+          ..write('campana: $campana, ')
+          ..write('vacuna: $vacuna, ')
+          ..write('dosis: $dosis, ')
+          ..write('lote: $lote, ')
+          ..write('aplicadoPor: $aplicadoPor, ')
+          ..write('fechaAplicacion: $fechaAplicacion, ')
+          ..write('observaciones: $observaciones, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('synced: $synced')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $HealthRecordsTable healthRecords = $HealthRecordsTable(this);
   late final $NotesTable notes = $NotesTable(this);
   late final $CitasTable citas = $CitasTable(this);
+  late final $VacunacionesPendientesTable vacunacionesPendientes =
+      $VacunacionesPendientesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities =>
-      [healthRecords, notes, citas];
+      [healthRecords, notes, citas, vacunacionesPendientes];
 }
 
 typedef $$HealthRecordsTableCreateCompanionBuilder = HealthRecordsCompanion
@@ -2931,6 +3536,290 @@ typedef $$CitasTableProcessedTableManager = ProcessedTableManager<
     (Cita, BaseReferences<_$AppDatabase, $CitasTable, Cita>),
     Cita,
     PrefetchHooks Function()>;
+typedef $$VacunacionesPendientesTableCreateCompanionBuilder
+    = VacunacionesPendientesCompanion Function({
+  Value<int> id,
+  required String matricula,
+  Value<String?> nombreEstudiante,
+  required String campana,
+  required String vacuna,
+  required int dosis,
+  Value<String?> lote,
+  Value<String?> aplicadoPor,
+  required String fechaAplicacion,
+  Value<String?> observaciones,
+  required DateTime createdAt,
+  Value<bool> synced,
+});
+typedef $$VacunacionesPendientesTableUpdateCompanionBuilder
+    = VacunacionesPendientesCompanion Function({
+  Value<int> id,
+  Value<String> matricula,
+  Value<String?> nombreEstudiante,
+  Value<String> campana,
+  Value<String> vacuna,
+  Value<int> dosis,
+  Value<String?> lote,
+  Value<String?> aplicadoPor,
+  Value<String> fechaAplicacion,
+  Value<String?> observaciones,
+  Value<DateTime> createdAt,
+  Value<bool> synced,
+});
+
+class $$VacunacionesPendientesTableFilterComposer
+    extends Composer<_$AppDatabase, $VacunacionesPendientesTable> {
+  $$VacunacionesPendientesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get matricula => $composableBuilder(
+      column: $table.matricula, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get nombreEstudiante => $composableBuilder(
+      column: $table.nombreEstudiante,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get campana => $composableBuilder(
+      column: $table.campana, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get vacuna => $composableBuilder(
+      column: $table.vacuna, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get dosis => $composableBuilder(
+      column: $table.dosis, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get lote => $composableBuilder(
+      column: $table.lote, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get aplicadoPor => $composableBuilder(
+      column: $table.aplicadoPor, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get fechaAplicacion => $composableBuilder(
+      column: $table.fechaAplicacion,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get observaciones => $composableBuilder(
+      column: $table.observaciones, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get synced => $composableBuilder(
+      column: $table.synced, builder: (column) => ColumnFilters(column));
+}
+
+class $$VacunacionesPendientesTableOrderingComposer
+    extends Composer<_$AppDatabase, $VacunacionesPendientesTable> {
+  $$VacunacionesPendientesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get matricula => $composableBuilder(
+      column: $table.matricula, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get nombreEstudiante => $composableBuilder(
+      column: $table.nombreEstudiante,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get campana => $composableBuilder(
+      column: $table.campana, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get vacuna => $composableBuilder(
+      column: $table.vacuna, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get dosis => $composableBuilder(
+      column: $table.dosis, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get lote => $composableBuilder(
+      column: $table.lote, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get aplicadoPor => $composableBuilder(
+      column: $table.aplicadoPor, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get fechaAplicacion => $composableBuilder(
+      column: $table.fechaAplicacion,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get observaciones => $composableBuilder(
+      column: $table.observaciones,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get synced => $composableBuilder(
+      column: $table.synced, builder: (column) => ColumnOrderings(column));
+}
+
+class $$VacunacionesPendientesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $VacunacionesPendientesTable> {
+  $$VacunacionesPendientesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get matricula =>
+      $composableBuilder(column: $table.matricula, builder: (column) => column);
+
+  GeneratedColumn<String> get nombreEstudiante => $composableBuilder(
+      column: $table.nombreEstudiante, builder: (column) => column);
+
+  GeneratedColumn<String> get campana =>
+      $composableBuilder(column: $table.campana, builder: (column) => column);
+
+  GeneratedColumn<String> get vacuna =>
+      $composableBuilder(column: $table.vacuna, builder: (column) => column);
+
+  GeneratedColumn<int> get dosis =>
+      $composableBuilder(column: $table.dosis, builder: (column) => column);
+
+  GeneratedColumn<String> get lote =>
+      $composableBuilder(column: $table.lote, builder: (column) => column);
+
+  GeneratedColumn<String> get aplicadoPor => $composableBuilder(
+      column: $table.aplicadoPor, builder: (column) => column);
+
+  GeneratedColumn<String> get fechaAplicacion => $composableBuilder(
+      column: $table.fechaAplicacion, builder: (column) => column);
+
+  GeneratedColumn<String> get observaciones => $composableBuilder(
+      column: $table.observaciones, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get synced =>
+      $composableBuilder(column: $table.synced, builder: (column) => column);
+}
+
+class $$VacunacionesPendientesTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $VacunacionesPendientesTable,
+    VacunacionesPendiente,
+    $$VacunacionesPendientesTableFilterComposer,
+    $$VacunacionesPendientesTableOrderingComposer,
+    $$VacunacionesPendientesTableAnnotationComposer,
+    $$VacunacionesPendientesTableCreateCompanionBuilder,
+    $$VacunacionesPendientesTableUpdateCompanionBuilder,
+    (
+      VacunacionesPendiente,
+      BaseReferences<_$AppDatabase, $VacunacionesPendientesTable,
+          VacunacionesPendiente>
+    ),
+    VacunacionesPendiente,
+    PrefetchHooks Function()> {
+  $$VacunacionesPendientesTableTableManager(
+      _$AppDatabase db, $VacunacionesPendientesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$VacunacionesPendientesTableFilterComposer(
+                  $db: db, $table: table),
+          createOrderingComposer: () =>
+              $$VacunacionesPendientesTableOrderingComposer(
+                  $db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$VacunacionesPendientesTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> matricula = const Value.absent(),
+            Value<String?> nombreEstudiante = const Value.absent(),
+            Value<String> campana = const Value.absent(),
+            Value<String> vacuna = const Value.absent(),
+            Value<int> dosis = const Value.absent(),
+            Value<String?> lote = const Value.absent(),
+            Value<String?> aplicadoPor = const Value.absent(),
+            Value<String> fechaAplicacion = const Value.absent(),
+            Value<String?> observaciones = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<bool> synced = const Value.absent(),
+          }) =>
+              VacunacionesPendientesCompanion(
+            id: id,
+            matricula: matricula,
+            nombreEstudiante: nombreEstudiante,
+            campana: campana,
+            vacuna: vacuna,
+            dosis: dosis,
+            lote: lote,
+            aplicadoPor: aplicadoPor,
+            fechaAplicacion: fechaAplicacion,
+            observaciones: observaciones,
+            createdAt: createdAt,
+            synced: synced,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String matricula,
+            Value<String?> nombreEstudiante = const Value.absent(),
+            required String campana,
+            required String vacuna,
+            required int dosis,
+            Value<String?> lote = const Value.absent(),
+            Value<String?> aplicadoPor = const Value.absent(),
+            required String fechaAplicacion,
+            Value<String?> observaciones = const Value.absent(),
+            required DateTime createdAt,
+            Value<bool> synced = const Value.absent(),
+          }) =>
+              VacunacionesPendientesCompanion.insert(
+            id: id,
+            matricula: matricula,
+            nombreEstudiante: nombreEstudiante,
+            campana: campana,
+            vacuna: vacuna,
+            dosis: dosis,
+            lote: lote,
+            aplicadoPor: aplicadoPor,
+            fechaAplicacion: fechaAplicacion,
+            observaciones: observaciones,
+            createdAt: createdAt,
+            synced: synced,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$VacunacionesPendientesTableProcessedTableManager
+    = ProcessedTableManager<
+        _$AppDatabase,
+        $VacunacionesPendientesTable,
+        VacunacionesPendiente,
+        $$VacunacionesPendientesTableFilterComposer,
+        $$VacunacionesPendientesTableOrderingComposer,
+        $$VacunacionesPendientesTableAnnotationComposer,
+        $$VacunacionesPendientesTableCreateCompanionBuilder,
+        $$VacunacionesPendientesTableUpdateCompanionBuilder,
+        (
+          VacunacionesPendiente,
+          BaseReferences<_$AppDatabase, $VacunacionesPendientesTable,
+              VacunacionesPendiente>
+        ),
+        VacunacionesPendiente,
+        PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2941,4 +3830,7 @@ class $AppDatabaseManager {
       $$NotesTableTableManager(_db, _db.notes);
   $$CitasTableTableManager get citas =>
       $$CitasTableTableManager(_db, _db.citas);
+  $$VacunacionesPendientesTableTableManager get vacunacionesPendientes =>
+      $$VacunacionesPendientesTableTableManager(
+          _db, _db.vacunacionesPendientes);
 }

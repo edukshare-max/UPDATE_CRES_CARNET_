@@ -45,6 +45,22 @@ class Notes extends Table {
   BoolColumn get synced => boolean().withDefault(const Constant(false))(); // Estado de sincronización
 }
 
+// Nueva tabla para vacunaciones pendientes de sincronización
+class VacunacionesPendientes extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get matricula => text()();
+  TextColumn get nombreEstudiante => text().nullable()();
+  TextColumn get campana => text()();
+  TextColumn get vacuna => text()();
+  IntColumn get dosis => integer()();
+  TextColumn get lote => text().nullable()();
+  TextColumn get aplicadoPor => text().nullable()();
+  TextColumn get fechaAplicacion => text()(); // ISO string
+  TextColumn get observaciones => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+  BoolColumn get synced => boolean().withDefault(const Constant(false))();
+}
+
 // Nueva tabla para citas
 class Citas extends Table {
   IntColumn get id => integer().autoIncrement()();
@@ -62,13 +78,13 @@ class Citas extends Table {
 
 // ===== Base de datos =====
 
-@DriftDatabase(tables: [HealthRecords, Notes, Citas])
+@DriftDatabase(tables: [HealthRecords, Notes, Citas, VacunacionesPendientes])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
-  // **SUBE** la versión para forzar migración y crear tabla citas
+  // **SUBE** la versión para forzar migración y crear tablas nuevas
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   // Crea y migra esquemas
   @override
@@ -89,6 +105,10 @@ class AppDatabase extends _$AppDatabase {
           // Agregar tabla citas
           if (from < 4) {
             await m.createTable(citas);
+          }
+          // Agregar tabla vacunacionesPendientes
+          if (from < 5) {
+            await m.createTable(vacunacionesPendientes);
           }
         },
       );
@@ -148,6 +168,27 @@ class AppDatabase extends _$AppDatabase {
   Future<void> markCitaAsSynced(int citaId) async {
     await (update(citas)..where((tbl) => tbl.id.equals(citaId)))
         .write(CitasCompanion(synced: Value(true)));
+  }
+
+  // Métodos para vacunaciones pendientes
+  Future<int> insertVacunacionPendiente(VacunacionesPendientesCompanion comp) => 
+      into(vacunacionesPendientes).insert(comp);
+
+  Future<List<VacunacionesPendiente>> getPendingVacunaciones() async {
+    final query = select(vacunacionesPendientes)..where((tbl) => tbl.synced.equals(false));
+    return await query.get();
+  }
+
+  Future<void> markVacunacionAsSynced(int vacunacionId) async {
+    await (update(vacunacionesPendientes)..where((tbl) => tbl.id.equals(vacunacionId)))
+        .write(VacunacionesPendientesCompanion(synced: Value(true)));
+  }
+
+  Future<List<VacunacionesPendiente>> getVacunacionesForMatricula(String matricula) async {
+    final query = select(vacunacionesPendientes)
+      ..where((tbl) => tbl.matricula.equals(matricula))
+      ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)]);
+    return await query.get();
   }
 }
 

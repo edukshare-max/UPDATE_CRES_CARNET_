@@ -621,5 +621,85 @@ static Future<Map<String, dynamic>?> getCitaById(String citaId) async {
       return null;
     }
   }
+
+  /// Guarda una aplicación de vacuna en el expediente del estudiante
+  /// Se almacena en Cosmos DB como parte del documento del carnet
+  /// Ruta: /carnet/{matricula}/vacunacion
+  static Future<bool> guardarAplicacionVacuna({
+    required String matricula,
+    required String campana,
+    required String vacuna,
+    required int dosis,
+    required String fechaAplicacion,
+    String? lote,
+    String? aplicadoPor,
+    String? observaciones,
+    String? nombreEstudiante,
+  }) async {
+    try {
+      // Crear ID único para esta aplicación
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final idAplicacion = 'vacuna_${matricula}_$timestamp';
+      
+      final url = Uri.parse('$baseUrl/carnet/$matricula/vacunacion');
+      final payload = {
+        'id': idAplicacion,
+        'matricula': matricula,
+        'nombreEstudiante': nombreEstudiante ?? '',
+        'campana': campana,
+        'vacuna': vacuna,
+        'dosis': dosis,
+        'lote': lote ?? '',
+        'aplicadoPor': aplicadoPor ?? '',
+        'fechaAplicacion': fechaAplicacion,
+        'observaciones': observaciones ?? '',
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+      
+      print('[VACUNACION] Guardando aplicación: $idAplicacion');
+      print('[VACUNACION] Payload: ${jsonEncode(payload)}');
+      
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(payload),
+      ).timeout(_normalTimeout);
+      
+      print('[VACUNACION] Status: ${response.statusCode}');
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print('[VACUNACION] ✅ Guardado exitoso en Cosmos DB');
+        return true;
+      } else if (response.statusCode == 404) {
+        print('[VACUNACION] ⚠️ Endpoint no existe, se guardó solo localmente');
+        return false;
+      } else {
+        print('[VACUNACION] ❌ Error ${response.statusCode}: ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      print('[VACUNACION] ❌ Exception: $e');
+      return false;
+    }
+  }
+
+  /// Obtiene el historial de vacunación de un estudiante
+  static Future<List<Map<String, dynamic>>> getHistorialVacunacion(String matricula) async {
+    try {
+      final url = Uri.parse('$baseUrl/carnet/$matricula/vacunacion');
+      final response = await http.get(url).timeout(_normalTimeout);
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(data);
+        }
+      }
+      return [];
+    } catch (e) {
+      print('[VACUNACION] Error al obtener historial: $e');
+      return [];
+    }
+  }
 // CIERRA la clase
 }
