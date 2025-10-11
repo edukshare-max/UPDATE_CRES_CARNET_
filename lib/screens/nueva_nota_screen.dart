@@ -18,10 +18,13 @@ import '../data/api_service.dart';
 
 import 'form_screen.dart';
 import 'package:cres_carnets_ibmcloud/ui/uagro_widgets.dart' hide SectionCard;
+import 'psychology/test_selection_screen.dart';
+import 'odontology/odontogram_screen.dart';
 
 // Imports para diseño institucional UAGro
 import '../ui/brand.dart';
 import '../ui/app_theme.dart';
+import '../ui/uagro_theme.dart' as theme;
 import '../ui/widgets/brand_sidebar.dart';
 import '../ui/widgets/section_card.dart';
 
@@ -1419,6 +1422,7 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> {
 
   Widget _highlightedNoteComposer(ColorScheme cs) {
     final isNutricion = _deptChoice == 'Consultorio de Nutrición';
+    final isPsicologia = _deptChoice == 'Departamento psicopedagógico';
     final isOtra = _deptChoice == 'Otra';
     final requiereDx = !((_deptChoice == 'Otra') || (_deptChoice == 'Atención estudiantil'));
 
@@ -1556,6 +1560,196 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> {
                     },
                   ),
                   const Divider(height: 24),
+                ],
+
+                // Psicología: tests psicológicos disponibles
+                if (isPsicologia) ...[
+                  const Divider(height: 24),
+                  Row(
+                    children: [
+                      Icon(Icons.psychology, color: theme.UAGroColors.azulMarino, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Tests Psicológicos',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: cs.onSurface.withOpacity(.9),
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    elevation: 2,
+                    color: theme.UAGroColors.azulMarino.withOpacity(0.05),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            'Instrumentos de evaluación disponibles:',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              color: cs.onSurface.withOpacity(.8),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          ElevatedButton.icon(
+                            onPressed: () async {
+                              // Verificar que haya una matrícula para asociar el test
+                              final matricula = _mat.text.trim();
+                              if (matricula.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Ingresa una matrícula para aplicar el test'),
+                                    backgroundColor: Colors.orange,
+                                  ),
+                                );
+                                return;
+                              }
+                              
+                              // Obtener nombre del paciente si existe
+                              String nombrePaciente = 'Paciente';
+                              if (_expedienteLocal != null) {
+                                nombrePaciente = _expedienteLocal!.nombreCompleto;
+                              } else if (_expedienteCloud != null && _expedienteCloud!['nombreCompleto'] != null) {
+                                nombrePaciente = _expedienteCloud!['nombreCompleto'];
+                              }
+                              
+                              // Navegar a la pantalla de selección de tests
+                              await Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => TestSelectionScreen(
+                                    matricula: matricula,
+                                    nombrePaciente: nombrePaciente,
+                                    db: widget.db,
+                                  ),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.assignment),
+                            label: const Text('Aplicar Tests Psicológicos'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: theme.UAGroColors.azulMarino,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '• Test de Hamilton (Depresión)\n'
+                            '• Test de Beck (Ansiedad)\n'
+                            '• Test DASS-21 (Depresión, Ansiedad, Estrés)',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: cs.onSurface.withOpacity(.6),
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 24),
+                ],
+
+                // Sección específica de Odontología: Odontograma - Versión discreta
+                if (_deptChoice == 'Consultorio de Odontología') ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: theme.UAGroColors.azulMarino.withOpacity(0.03),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: theme.UAGroColors.azulMarino.withOpacity(0.2),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: theme.UAGroColors.azulMarino.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Icon(
+                            Icons.medical_information_outlined, 
+                            color: theme.UAGroColors.azulMarino, 
+                            size: 24
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Odontograma Profesional',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: theme.UAGroColors.azulMarino,
+                                ),
+                              ),
+                              Text(
+                                '32 dientes • FDI • Diagnóstico por superficie • PDF',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: cs.onSurface.withOpacity(.55),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            // Verificar que haya una matrícula
+                            final matricula = _mat.text.trim();
+                            if (matricula.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Ingresa una matrícula para crear el odontograma'),
+                                  backgroundColor: Colors.orange,
+                                ),
+                              );
+                              return;
+                            }
+                            
+                            // Obtener nombre del paciente
+                            String nombrePaciente = 'Paciente';
+                            if (_expedienteLocal != null) {
+                              nombrePaciente = _expedienteLocal!.nombreCompleto;
+                            } else if (_expedienteCloud != null && _expedienteCloud!['nombreCompleto'] != null) {
+                              nombrePaciente = _expedienteCloud!['nombreCompleto'];
+                            }
+                            
+                            // Navegar a la pantalla del odontograma
+                            await Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => OdontogramScreen(
+                                  matricula: matricula,
+                                  nombrePaciente: nombrePaciente,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.create, size: 18),
+                          label: const Text('Crear'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.UAGroColors.azulMarino,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            textStyle: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                 ],
 
                 // Cuerpo de la nota

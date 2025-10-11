@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../models/psychological_test.dart';
 import '../../models/hamilton_test.dart';
+import '../../models/beck_test.dart';
+import '../../models/dass21_test.dart';
+import '../../models/plutchik_test.dart';
+import '../../models/mbi_test.dart';
 import '../../ui/brand.dart';
-import '../../ui/uagro_theme.dart';
+import '../../ui/uagro_theme.dart' as theme;
 import '../../data/auth_service.dart';
 import 'test_results_screen.dart';
 
@@ -44,11 +48,17 @@ class _TestApplicationScreenState extends State<TestApplicationScreen> {
         _test = HamiltonDepressionTest();
         break;
       case TestType.bai:
+        _test = BeckAnxietyInventory();
+        break;
       case TestType.narcisismo:
+        _test = DASS21Test(); // DASS-21 como tercer test disponible
+        break;
       case TestType.plutchik:
+        _test = PlutchikSuicideRiskScale();
+        break;
       case TestType.mbi:
-        // TODO: Implementar otros tests
-        throw UnimplementedError('Test ${widget.testType} no implementado aún');
+        _test = MaslachBurnoutInventory();
+        break;
     }
   }
 
@@ -101,7 +111,7 @@ class _TestApplicationScreenState extends State<TestApplicationScreen> {
     try {
       // Obtener información del psicólogo actual
       final currentUser = await AuthService.getCurrentUser();
-      final psicologo = currentUser?['nombre_completo'] ?? 'Psicólogo UAGro';
+      final psicologo = currentUser?.nombreCompleto ?? 'Psicólogo UAGro';
 
       // Convertir respuestas al formato requerido
       final testResponses = _test.questions.map((question) {
@@ -167,7 +177,7 @@ class _TestApplicationScreenState extends State<TestApplicationScreen> {
             fontSize: 18,
           ),
         ),
-        backgroundColor: UAGroColors.azulMarino,
+        backgroundColor: theme.UAGroColors.azulMarino,
         iconTheme: IconThemeData(color: Colors.white),
         elevation: 0,
       ),
@@ -177,8 +187,8 @@ class _TestApplicationScreenState extends State<TestApplicationScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              UAGroColors.azulMarino,
-              UAGroColors.azulMarino.withOpacity(0.8),
+              theme.UAGroColors.azulMarino,
+              theme.UAGroColors.azulMarino.withOpacity(0.8),
               Colors.grey[50]!,
             ],
           ),
@@ -282,8 +292,8 @@ class _TestApplicationScreenState extends State<TestApplicationScreen> {
                           icon: Icon(Icons.arrow_back),
                           label: Text('Anterior'),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: UAGroColors.azulMarino,
-                            side: BorderSide(color: UAGroColors.azulMarino),
+                            foregroundColor: theme.UAGroColors.azulMarino,
+                            side: BorderSide(color: theme.UAGroColors.azulMarino),
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
                         ),
@@ -316,7 +326,7 @@ class _TestApplicationScreenState extends State<TestApplicationScreen> {
                                 ? 'Finalizar Test' 
                                 : 'Siguiente')),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: UAGroColors.azulMarino,
+                          backgroundColor: theme.UAGroColors.azulMarino,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           disabledBackgroundColor: Colors.grey[400],
@@ -352,7 +362,7 @@ class _TestApplicationScreenState extends State<TestApplicationScreen> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: UAGroColors.azulMarino,
+                  color: theme.UAGroColors.azulMarino,
                   height: 1.4,
                 ),
               ),
@@ -384,12 +394,12 @@ class _TestApplicationScreenState extends State<TestApplicationScreen> {
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                 color: isSelected 
-                                    ? UAGroColors.azulMarino 
+                                    ? theme.UAGroColors.azulMarino 
                                     : Colors.grey[300]!,
                                 width: isSelected ? 2 : 1,
                               ),
                               color: isSelected 
-                                  ? UAGroColors.azulMarino.withOpacity(0.1) 
+                                  ? theme.UAGroColors.azulMarino.withOpacity(0.1) 
                                   : Colors.white,
                             ),
                             child: Row(
@@ -401,12 +411,12 @@ class _TestApplicationScreenState extends State<TestApplicationScreen> {
                                     shape: BoxShape.circle,
                                     border: Border.all(
                                       color: isSelected 
-                                          ? UAGroColors.azulMarino 
+                                          ? theme.UAGroColors.azulMarino 
                                           : Colors.grey[400]!,
                                       width: 2,
                                     ),
                                     color: isSelected 
-                                        ? UAGroColors.azulMarino 
+                                        ? theme.UAGroColors.azulMarino 
                                         : Colors.white,
                                   ),
                                   child: isSelected 
@@ -424,7 +434,7 @@ class _TestApplicationScreenState extends State<TestApplicationScreen> {
                                     style: TextStyle(
                                       fontSize: 16,
                                       color: isSelected 
-                                          ? UAGroColors.azulMarino 
+                                          ? theme.UAGroColors.azulMarino 
                                           : Colors.grey[700],
                                       fontWeight: isSelected 
                                           ? FontWeight.w600 

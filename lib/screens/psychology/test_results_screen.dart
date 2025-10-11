@@ -4,10 +4,13 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 import '../../models/psychological_test.dart';
 import '../../models/hamilton_test.dart';
 import '../../ui/brand.dart';
-import '../../ui/uagro_theme.dart';
+import '../../ui/uagro_theme.dart' as theme;
 import '../../data/api_service.dart';
 
 /// Pantalla de resultados del test psicológico
@@ -29,6 +32,67 @@ class TestResultsScreen extends StatefulWidget {
 class _TestResultsScreenState extends State<TestResultsScreen> {
   bool _savingToExpediente = false;
   bool _generatingPdf = false;
+  bool _autoSaveOffered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Ofrecer guardado automático después de un breve delay
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted && !_autoSaveOffered) {
+        _offerAutoSave();
+      }
+    });
+  }
+
+  Future<void> _offerAutoSave() async {
+    if (!mounted) return;
+    
+    setState(() {
+      _autoSaveOffered = true;
+    });
+
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.save, color: theme.UAGroColors.azulMarino),
+            const SizedBox(width: 12),
+            const Text('Guardar Resultados'),
+          ],
+        ),
+        content: Text(
+          '¿Desea guardar y descargar el PDF de los resultados de este test?\n\n'
+          'El documento incluirá:\n'
+          '• Datos del paciente (${widget.result.nombrePaciente})\n'
+          '• Resultados completos del test\n'
+          '• Interpretación clínica\n'
+          '• Recomendaciones',
+          style: const TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Ahora No'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.of(context).pop(true),
+            icon: const Icon(Icons.picture_as_pdf),
+            label: const Text('Guardar PDF'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.UAGroColors.azulMarino,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldSave == true && mounted) {
+      await _generatePdf();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +105,7 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        backgroundColor: widget.result.alertaCritica ? Colors.red[700] : UAGroColors.azulMarino,
+        backgroundColor: widget.result.alertaCritica ? Colors.red[700] : theme.UAGroColors.azulMarino,
         iconTheme: IconThemeData(color: Colors.white),
         elevation: 0,
         actions: [
@@ -67,8 +131,8 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              widget.result.alertaCritica ? Colors.red[700]! : UAGroColors.azulMarino,
-              widget.result.alertaCritica ? Colors.red[400]! : UAGroColors.azulMarino.withOpacity(0.8),
+              widget.result.alertaCritica ? Colors.red[700]! : theme.UAGroColors.azulMarino,
+              widget.result.alertaCritica ? Colors.red[400]! : theme.UAGroColors.azulMarino.withOpacity(0.8),
               Colors.grey[50]!,
             ],
           ),
@@ -176,7 +240,7 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
               Navigator.of(context).pop();
             },
             child: Icon(Icons.psychology),
-            backgroundColor: UAGroColors.azulMarino,
+            backgroundColor: theme.UAGroColors.azulMarino,
             foregroundColor: Colors.white,
             tooltip: 'Aplicar Otro Test',
           ),
@@ -199,12 +263,12 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: UAGroColors.azulMarino.withOpacity(0.1),
+                    color: theme.UAGroColors.azulMarino.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
                     Icons.assessment,
-                    color: UAGroColors.azulMarino,
+                    color: theme.UAGroColors.azulMarino,
                     size: 24,
                   ),
                 ),
@@ -218,7 +282,7 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: UAGroColors.azulMarino,
+                          color: theme.UAGroColors.azulMarino,
                         ),
                       ),
                       Text(
@@ -281,7 +345,7 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: UAGroColors.azulMarino,
+            color: theme.UAGroColors.azulMarino,
           ),
         ),
       ],
@@ -302,7 +366,7 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: UAGroColors.azulMarino,
+                color: theme.UAGroColors.azulMarino,
               ),
             ),
             const SizedBox(height: 20),
@@ -377,7 +441,7 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
         if (isUserScore)
           BarChartRodData(
             toY: widget.result.puntuacionTotal.toDouble(),
-            color: UAGroColors.azulMarino,
+            color: theme.UAGroColors.azulMarino,
             width: 8,
             borderRadius: BorderRadius.circular(4),
           ),
@@ -398,7 +462,7 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
               children: [
                 Icon(
                   Icons.psychology,
-                  color: UAGroColors.azulMarino,
+                  color: theme.UAGroColors.azulMarino,
                   size: 24,
                 ),
                 const SizedBox(width: 12),
@@ -407,7 +471,7 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: UAGroColors.azulMarino,
+                    color: theme.UAGroColors.azulMarino,
                   ),
                 ),
               ],
@@ -463,7 +527,7 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: UAGroColors.azulMarino,
+                    color: theme.UAGroColors.azulMarino,
                   ),
                 ),
               ],
@@ -504,7 +568,7 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
               children: [
                 Icon(
                   Icons.list_alt,
-                  color: UAGroColors.azulMarino,
+                  color: theme.UAGroColors.azulMarino,
                   size: 24,
                 ),
                 const SizedBox(width: 12),
@@ -513,7 +577,7 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: UAGroColors.azulMarino,
+                    color: theme.UAGroColors.azulMarino,
                   ),
                 ),
               ],
@@ -553,7 +617,7 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
                             response.response.toString(),
                             style: TextStyle(
                               fontSize: 14,
-                              color: UAGroColors.azulMarino,
+                              color: theme.UAGroColors.azulMarino,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -561,7 +625,7 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: UAGroColors.azulMarino.withOpacity(0.1),
+                            color: theme.UAGroColors.azulMarino.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -569,7 +633,7 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: UAGroColors.azulMarino,
+                              color: theme.UAGroColors.azulMarino,
                             ),
                           ),
                         ),
@@ -787,6 +851,23 @@ ${widget.result.responses.asMap().entries.map((entry) {
               pw.Text('${widget.test.name}'),
               pw.Text('Puntuación Total: ${widget.result.puntuacionTotal} puntos'),
               
+              // Mostrar subescalas si existen (para DASS-21)
+              if (widget.result.datosAdicionales != null && widget.result.datosAdicionales!['subscaleScores'] != null) ...[
+                pw.SizedBox(height: 10),
+                pw.Text(
+                  'Severidad: ${widget.result.datosAdicionales!['severity']}',
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                ),
+                pw.SizedBox(height: 5),
+                pw.Text(
+                  'Puntuaciones por Subescala:',
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                ),
+                ...(widget.result.datosAdicionales!['subscaleScores'] as Map<String, dynamic>).entries.map(
+                  (entry) => pw.Text('  • ${entry.key}: ${entry.value} puntos'),
+                ),
+              ],
+              
               pw.SizedBox(height: 20),
               
               // Interpretación
@@ -914,11 +995,59 @@ ${widget.result.responses.asMap().entries.map((entry) {
         ),
       );
 
-      // Mostrar el PDF
-      await Printing.layoutPdf(
-        onLayout: (PdfPageFormat format) async => pdf.save(),
-        name: 'Test_${widget.test.name.replaceAll(' ', '_')}_${widget.result.matricula}_${DateFormat('yyyyMMdd').format(widget.result.fechaAplicacion)}.pdf',
-      );
+      // Generar bytes del PDF
+      final pdfBytes = await pdf.save();
+      
+      // Nombre del archivo
+      final fileName = 'Test_${widget.test.name.replaceAll(' ', '_')}_${widget.result.matricula}_${DateFormat('yyyyMMdd_HHmmss').format(widget.result.fechaAplicacion)}.pdf';
+
+      // Guardar PDF localmente
+      final baseDir = await getApplicationSupportDirectory();
+      final pdfDir = Directory(path.join(baseDir.path, 'tests_psicologicos', widget.result.matricula));
+      if (!await pdfDir.exists()) {
+        await pdfDir.create(recursive: true);
+      }
+      
+      final pdfFile = File(path.join(pdfDir.path, fileName));
+      await pdfFile.writeAsBytes(pdfBytes);
+
+      if (mounted) {
+        // Mostrar mensaje de éxito con ubicación del archivo
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('✓ PDF guardado exitosamente'),
+                const SizedBox(height: 4),
+                Text(
+                  'Ubicación: tests_psicologicos/${widget.result.matricula}/',
+                  style: TextStyle(fontSize: 12, color: Colors.white70),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'Abrir PDF',
+              textColor: Colors.white,
+              onPressed: () async {
+                await Printing.layoutPdf(
+                  onLayout: (PdfPageFormat format) async => pdfBytes,
+                  name: fileName,
+                );
+              },
+            ),
+          ),
+        );
+
+        // Mostrar el PDF automáticamente
+        await Printing.layoutPdf(
+          onLayout: (PdfPageFormat format) async => pdfBytes,
+          name: fileName,
+        );
+      }
 
     } catch (e) {
       if (mounted) {

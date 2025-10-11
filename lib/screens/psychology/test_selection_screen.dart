@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../models/psychological_test.dart';
-import '../models/hamilton_test.dart';
-import '../ui/brand.dart';
-import '../ui/uagro_theme.dart';
+import '../../models/psychological_test.dart';
+import '../../models/hamilton_test.dart';
+import '../../ui/brand.dart';
+import '../../ui/uagro_theme.dart' as theme;
 import 'test_application_screen.dart';
 import '../dashboard_screen.dart';
 
@@ -11,11 +11,13 @@ import '../dashboard_screen.dart';
 class TestSelectionScreen extends StatelessWidget {
   final String matricula;
   final String nombrePaciente;
+  final dynamic db;
 
   const TestSelectionScreen({
     super.key,
     required this.matricula,
     required this.nombrePaciente,
+    this.db,
   });
 
   @override
@@ -29,7 +31,7 @@ class TestSelectionScreen extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
-        backgroundColor: UAGroColors.azulMarino,
+        backgroundColor: theme.UAGroColors.azulMarino,
         iconTheme: IconThemeData(color: Colors.white),
         elevation: 0,
         actions: [
@@ -39,7 +41,7 @@ class TestSelectionScreen extends StatelessWidget {
             tooltip: 'Ir al inicio',
             onPressed: () {
               Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => DashboardScreen(db: widget.db)),
+                MaterialPageRoute(builder: (context) => DashboardScreen(db: db)),
                 (route) => false,
               );
             },
@@ -52,8 +54,8 @@ class TestSelectionScreen extends StatelessWidget {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              UAGroColors.azulMarino,
-              UAGroColors.azulMarino.withOpacity(0.8),
+              theme.UAGroColors.azulMarino,
+              theme.UAGroColors.azulMarino.withOpacity(0.8),
               Colors.grey[100]!,
             ],
           ),
@@ -83,12 +85,12 @@ class TestSelectionScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: UAGroColors.azulMarino.withOpacity(0.1),
+                          color: theme.UAGroColors.azulMarino.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
                           Icons.person,
-                          color: UAGroColors.azulMarino,
+                          color: theme.UAGroColors.azulMarino,
                           size: 24,
                         ),
                       ),
@@ -102,7 +104,7 @@ class TestSelectionScreen extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: UAGroColors.azulMarino,
+                                color: theme.UAGroColors.azulMarino,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -165,18 +167,18 @@ class TestSelectionScreen extends StatelessWidget {
                         description: 'Evaluación de síntomas físicos de ansiedad',
                         color: Colors.orange[700]!,
                         testType: TestType.bai,
-                        isImplemented: false,
+                        isImplemented: true,
                       ),
 
                       _buildTestCard(
                         context,
-                        icon: Icons.star,
-                        title: 'Cuestionario de Rasgos Narcisistas',
-                        subtitle: 'NPI • 40 ítems • 15 min',
-                        description: 'Evaluación de características narcisistas',
+                        icon: Icons.assessment,
+                        title: 'DASS-21 (Depresión-Ansiedad-Estrés)',
+                        subtitle: 'DASS-21 • 21 ítems • 10 min',
+                        description: 'Evaluación integral de depresión, ansiedad y estrés',
                         color: Colors.purple[700]!,
-                        testType: TestType.narcisismo,
-                        isImplemented: false,
+                        testType: TestType.narcisismo, // Usamos este enum temporalmente para DASS-21
+                        isImplemented: true,
                       ),
 
                       _buildTestCard(
@@ -187,7 +189,7 @@ class TestSelectionScreen extends StatelessWidget {
                         description: 'Evaluación de riesgo suicida (CRÍTICO)',
                         color: Colors.red[700]!,
                         testType: TestType.plutchik,
-                        isImplemented: false,
+                        isImplemented: true,
                       ),
 
                       _buildTestCard(
@@ -198,7 +200,7 @@ class TestSelectionScreen extends StatelessWidget {
                         description: 'Evaluación de síndrome de burnout laboral',
                         color: Colors.green[700]!,
                         testType: TestType.mbi,
-                        isImplemented: false,
+                        isImplemented: true,
                       ),
                     ],
                   ),
@@ -276,7 +278,7 @@ class TestSelectionScreen extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: isImplemented ? UAGroColors.azulMarino : Colors.grey[500],
+                                color: isImplemented ? theme.UAGroColors.azulMarino : Colors.grey[500],
                               ),
                             ),
                           ),

@@ -34,6 +34,10 @@ dependencies:
   open_filex: ^4.4.0
   pdf: ^3.11.0
   printing: ^5.13.4
+  
+  # Tests psicológicos
+  uuid: ^4.5.1
+  fl_chart: ^0.69.0
 
 dev_dependencies:
   flutter_test:
