@@ -126,20 +126,47 @@ class ApiService {
         return false;
       }
 
-      final url = Uri.parse('$baseUrl/carnet');
-      print('=== SYNC CARNET DEBUG ===');
-      print('POST $url');
-      print('Payload: $data');
-      print('Tiene ID: ${data.containsKey('id') ? data['id'] : 'NO'}');
+      // Determinar si es creación (sin ID) o edición (con ID)
+      final isEdit = data.containsKey('id') && data['id'] != null;
+      final Uri url;
+      final String method;
       
-      final resp = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode(data),
-      );
+      if (isEdit) {
+        // Editar carnet existente: PUT /carnet/{id}
+        url = Uri.parse('$baseUrl/carnet/${data['id']}');
+        method = 'PUT';
+      } else {
+        // Crear carnet nuevo: POST /carnet
+        url = Uri.parse('$baseUrl/carnet');
+        method = 'POST';
+      }
+
+      print('=== SYNC CARNET DEBUG ===');
+      print('$method $url');
+      print('Payload: $data');
+      print('Es edición: $isEdit');
+      print('ID: ${data.containsKey('id') ? data['id'] : 'NO'}');
+      
+      final http.Response resp;
+      if (isEdit) {
+        resp = await http.put(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode(data),
+        );
+      } else {
+        resp = await http.post(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode(data),
+        );
+      }
       
       print('Status: ${resp.statusCode}');
       print('Response Body: ${resp.body}');
