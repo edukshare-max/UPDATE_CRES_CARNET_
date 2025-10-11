@@ -1,0 +1,38 @@
+{
+  "version": "2.3.2",
+  "buildNumber": 1,
+  "releaseDate": "2025-10-10",
+  "channel": "stable",
+  "minimumVersion": "2.0.0",
+  "changelog": [
+    {
+      "version": "2.3.2",
+      "date": "2025-10-10",
+      "changes": [
+        "Sistema de instalador profesional",
+        "88 instituciones UAGro implementadas",
+        "Autocompletado inteligente en panel admin",
+        "Sistema de autenticación completo",
+        "Modo híbrido online/offline"
+      ]
+    },
+    {
+      "version": "2.3.1",
+      "date": "2025-10-10",
+      "changes": [
+        "88 instituciones organizadas por categoría",
+        "Búsqueda fuzzy en selector de campus",
+        "Eliminado endpoint temporal de seguridad"
+      ]
+    },
+    {
+      "version": "2.0.0",
+      "date": "2025-10-09",
+      "changes": [
+        "Sistema de autenticación JWT",
+        "Modo híbrido inteligente",
+        "Sincronización automática"
+      ]
+    }
+  ]
+}

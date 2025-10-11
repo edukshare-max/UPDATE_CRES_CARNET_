@@ -173,6 +173,7 @@ class ApiService {
       print('Response Headers: ${resp.headers}');
       
       if (resp.statusCode == 200 || resp.statusCode == 201) {
+        print('[CARNET] ✅ RESPUESTA EXITOSA - Status: ${resp.statusCode}');
         try {
           final responseData = jsonDecode(resp.body);
           print('[CARNET] Guardado exitoso - Respuesta parseada: $responseData');
@@ -182,14 +183,15 @@ class ApiService {
           return true;
         } catch (e) {
           print('[CARNET] Warning: respuesta no JSON pero status OK - Error: $e');
+          print('[CARNET] ✅ CONSIDERANDO COMO ÉXITO por status 2xx');
           return true; // Status 2xx = éxito aunque no sea JSON válido
         }
       } else if (resp.statusCode == 401 || resp.statusCode == 403) {
         print('[CARNET] ⚠️ Token expirado o sin permisos, guardado solo local');
         return false;
       } else {
-        print('[CARNET] ERROR - Status code no exitoso: ${resp.statusCode}');
-        print('[CARNET] ERROR - Body: ${resp.body}');
+        print('[CARNET] ❌ ERROR - Status code no exitoso: ${resp.statusCode}');
+        print('[CARNET] ❌ ERROR - Body: ${resp.body}');
         return false;
       }
     } catch (e) {
