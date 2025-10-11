@@ -119,6 +119,13 @@ class ApiService {
   // Crea un carnet desde el formulario y lo guarda en la nube
   static Future<bool> pushSingleCarnet(Map<String, dynamic> data) async {
     try {
+      // Obtener token JWT para autenticación
+      final token = await auth.AuthService.getToken();
+      if (token == null) {
+        print('[CARNET] ⚠️ No hay token JWT, no se puede sincronizar');
+        return false;
+      }
+
       final url = Uri.parse('$baseUrl/carnet');
       print('=== SYNC CARNET DEBUG ===');
       print('POST $url');
@@ -127,7 +134,10 @@ class ApiService {
       
       final resp = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
         body: jsonEncode(data),
       );
       
@@ -147,6 +157,9 @@ class ApiService {
           print('[CARNET] Warning: respuesta no JSON pero status OK - Error: $e');
           return true; // Status 2xx = éxito aunque no sea JSON válido
         }
+      } else if (resp.statusCode == 401 || resp.statusCode == 403) {
+        print('[CARNET] ⚠️ Token expirado o sin permisos, guardado solo local');
+        return false;
       } else {
         print('[CARNET] ERROR - Status code no exitoso: ${resp.statusCode}');
         print('[CARNET] ERROR - Body: ${resp.body}');
