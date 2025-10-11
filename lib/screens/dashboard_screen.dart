@@ -9,6 +9,8 @@ import 'package:cres_carnets_ibmcloud/ui/uagro_theme.dart';
 import 'package:cres_carnets_ibmcloud/ui/connection_indicator.dart';
 import 'package:cres_carnets_ibmcloud/data/db.dart' as DB;
 import 'package:cres_carnets_ibmcloud/data/auth_service.dart';
+import 'package:cres_carnets_ibmcloud/services/version_service.dart';
+import 'package:cres_carnets_ibmcloud/services/update_manager.dart';
 
 /// Dashboard principal después del login
 /// Muestra las 4 opciones principales del sistema
@@ -30,11 +32,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _canViewPromocion = false;
   bool _canViewVacunacion = false;
 
+  // Manejador de actualizaciones
+  UpdateManager? _updateManager;
+
   @override
   void initState() {
     super.initState();
     _loadUserInfo();
     _loadPermissions();
+    _initUpdateManager();
+  }
+
+  /// Inicializar el sistema de actualizaciones
+  Future<void> _initUpdateManager() async {
+    try {
+      // Obtener versión del servicio singleton
+      final versionService = VersionService();
+      if (!versionService.isLoaded) {
+        await versionService.loadVersion();
+      }
+      
+      final versionInfo = versionService.versionInfo;
+      if (versionInfo == null) {
+        debugPrint('⚠️ No se pudo cargar información de versión');
+        return;
+      }
+
+      _updateManager = UpdateManager(
+        currentVersion: versionInfo.version,
+        currentBuild: versionInfo.buildNumber,
+      );
+      
+      // Verificar actualizaciones automáticamente después de cargar el dashboard
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted && _updateManager != null) {
+          _updateManager!.checkForUpdatesAutomatic(context);
+        }
+      });
+    } catch (e) {
+      debugPrint('⚠️ Error al inicializar UpdateManager: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _updateManager?.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUserInfo() async {
@@ -167,6 +210,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
+          IconButton(
+            icon: const Icon(Icons.system_update),
+            tooltip: 'Buscar actualizaciones',
+            onPressed: () {
+              if (_updateManager != null) {
+                _updateManager!.checkForUpdatesManual(context);
+              }
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.info_outline),
             tooltip: 'Acerca de',
