@@ -18,7 +18,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   
-  String _selectedCampus = 'llano-largo';
+  String _selectedCampus = 'cres-llano-largo'; // Actualizado al nuevo formato
   bool _isLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
@@ -29,13 +29,105 @@ class _LoginScreenState extends State<LoginScreen> {
   static const Color _dorado = Color(0xFFFFB81C);
   static const Color _verde = Color(0xFF00843D);
 
+  // 88 Instituciones UAGro - Sincronizado con backend
   final List<Map<String, String>> _campusList = [
-    {'value': 'llano-largo', 'label': 'Llano Largo'},
-    {'value': 'acapulco', 'label': 'Acapulco'},
-    {'value': 'chilpancingo', 'label': 'Chilpancingo'},
-    {'value': 'taxco', 'label': 'Taxco'},
-    {'value': 'iguala', 'label': 'Iguala'},
-    {'value': 'zihuatanejo', 'label': 'Zihuatanejo'},
+    // CRES - Centros Regionales de Educación Superior (6)
+    {'value': 'cres-cruz-grande', 'label': 'CRES Cruz Grande'},
+    {'value': 'cres-zumpango', 'label': 'CRES Zumpango del Río'},
+    {'value': 'cres-taxco-viejo', 'label': 'CRES Taxco el Viejo'},
+    {'value': 'cres-huamuxtitlan', 'label': 'CRES Huamuxtitlán'},
+    {'value': 'cres-llano-largo', 'label': 'CRES Llano Largo'},
+    {'value': 'cres-tecpan', 'label': 'CRES Tecpan de Galeana'},
+    
+    // Clínicas Universitarias (4)
+    {'value': 'clinica-chilpancingo', 'label': 'Clínica Universitaria Chilpancingo'},
+    {'value': 'clinica-acapulco', 'label': 'Clínica Universitaria Acapulco'},
+    {'value': 'clinica-iguala', 'label': 'Clínica Universitaria Iguala'},
+    {'value': 'clinica-ometepec', 'label': 'Clínica Universitaria Ometepec'},
+    
+    // Facultades (20)
+    {'value': 'fac-gobierno', 'label': 'Facultad de Ciencias Políticas y Gobierno'},
+    {'value': 'fac-arquitectura', 'label': 'Facultad de Arquitectura y Urbanismo'},
+    {'value': 'fac-quimico', 'label': 'Facultad de Ciencias Químico Biológicas'},
+    {'value': 'fac-comunicacion', 'label': 'Facultad de Ciencias de la Comunicación'},
+    {'value': 'fac-derecho-chil', 'label': 'Facultad de Derecho (Chilpancingo)'},
+    {'value': 'fac-filosofia', 'label': 'Facultad de Filosofía y Letras'},
+    {'value': 'fac-ingenieria', 'label': 'Facultad de Ingeniería'},
+    {'value': 'fac-matematicas-centro', 'label': 'Facultad de Matemáticas (Centro)'},
+    {'value': 'fac-contaduria', 'label': 'Facultad de Contaduría y Administración'},
+    {'value': 'fac-derecho-aca', 'label': 'Facultad de Derecho (Acapulco)'},
+    {'value': 'fac-ecologia', 'label': 'Facultad de Ecología Marina'},
+    {'value': 'fac-economia', 'label': 'Facultad de Economía'},
+    {'value': 'fac-enfermeria2', 'label': 'Facultad de Enfermería 2'},
+    {'value': 'fac-matematicas-sur', 'label': 'Facultad de Matemáticas (Sur)'},
+    {'value': 'fac-lenguas', 'label': 'Facultad de Lenguas Extranjeras'},
+    {'value': 'fac-medicina', 'label': 'Facultad de Medicina'},
+    {'value': 'fac-odontologia', 'label': 'Facultad de Odontología'},
+    {'value': 'fac-turismo', 'label': 'Facultad de Turismo'},
+    {'value': 'fac-agropecuarias', 'label': 'Facultad de Ciencias Agropecuarias'},
+    {'value': 'fac-matematicas-norte', 'label': 'Facultad de Matemáticas (Norte)'},
+    
+    // Preparatorias (50)
+    {'value': 'prep-1', 'label': 'Preparatoria 1'},
+    {'value': 'prep-2', 'label': 'Preparatoria 2'},
+    {'value': 'prep-3', 'label': 'Preparatoria 3'},
+    {'value': 'prep-4', 'label': 'Preparatoria 4'},
+    {'value': 'prep-5', 'label': 'Preparatoria 5'},
+    {'value': 'prep-6', 'label': 'Preparatoria 6'},
+    {'value': 'prep-7', 'label': 'Preparatoria 7'},
+    {'value': 'prep-8', 'label': 'Preparatoria 8'},
+    {'value': 'prep-9', 'label': 'Preparatoria 9'},
+    {'value': 'prep-10', 'label': 'Preparatoria 10'},
+    {'value': 'prep-11', 'label': 'Preparatoria 11'},
+    {'value': 'prep-12', 'label': 'Preparatoria 12'},
+    {'value': 'prep-13', 'label': 'Preparatoria 13'},
+    {'value': 'prep-14', 'label': 'Preparatoria 14'},
+    {'value': 'prep-15', 'label': 'Preparatoria 15'},
+    {'value': 'prep-16', 'label': 'Preparatoria 16'},
+    {'value': 'prep-17', 'label': 'Preparatoria 17'},
+    {'value': 'prep-18', 'label': 'Preparatoria 18'},
+    {'value': 'prep-19', 'label': 'Preparatoria 19'},
+    {'value': 'prep-20', 'label': 'Preparatoria 20'},
+    {'value': 'prep-21', 'label': 'Preparatoria 21'},
+    {'value': 'prep-22', 'label': 'Preparatoria 22'},
+    {'value': 'prep-23', 'label': 'Preparatoria 23'},
+    {'value': 'prep-24', 'label': 'Preparatoria 24'},
+    {'value': 'prep-25', 'label': 'Preparatoria 25'},
+    {'value': 'prep-26', 'label': 'Preparatoria 26'},
+    {'value': 'prep-27', 'label': 'Preparatoria 27'},
+    {'value': 'prep-28', 'label': 'Preparatoria 28'},
+    {'value': 'prep-29', 'label': 'Preparatoria 29'},
+    {'value': 'prep-30', 'label': 'Preparatoria 30'},
+    {'value': 'prep-31', 'label': 'Preparatoria 31'},
+    {'value': 'prep-32', 'label': 'Preparatoria 32'},
+    {'value': 'prep-33', 'label': 'Preparatoria 33'},
+    {'value': 'prep-34', 'label': 'Preparatoria 34'},
+    {'value': 'prep-35', 'label': 'Preparatoria 35'},
+    {'value': 'prep-36', 'label': 'Preparatoria 36'},
+    {'value': 'prep-37', 'label': 'Preparatoria 37'},
+    {'value': 'prep-38', 'label': 'Preparatoria 38'},
+    {'value': 'prep-39', 'label': 'Preparatoria 39'},
+    {'value': 'prep-40', 'label': 'Preparatoria 40'},
+    {'value': 'prep-41', 'label': 'Preparatoria 41'},
+    {'value': 'prep-42', 'label': 'Preparatoria 42'},
+    {'value': 'prep-43', 'label': 'Preparatoria 43'},
+    {'value': 'prep-44', 'label': 'Preparatoria 44'},
+    {'value': 'prep-45', 'label': 'Preparatoria 45'},
+    {'value': 'prep-46', 'label': 'Preparatoria 46'},
+    {'value': 'prep-47', 'label': 'Preparatoria 47'},
+    {'value': 'prep-48', 'label': 'Preparatoria 48'},
+    {'value': 'prep-49', 'label': 'Preparatoria 49'},
+    {'value': 'prep-50', 'label': 'Preparatoria 50'},
+    
+    // Rectoría y Coordinaciones Regionales (8)
+    {'value': 'rectoria', 'label': 'Rectoría'},
+    {'value': 'coord-sur', 'label': 'Coordinación Regional Sur'},
+    {'value': 'coord-centro', 'label': 'Coordinación Regional Centro'},
+    {'value': 'coord-norte', 'label': 'Coordinación Regional Norte'},
+    {'value': 'coord-costa-chica', 'label': 'Coordinación Regional Costa Chica'},
+    {'value': 'coord-costa-grande', 'label': 'Coordinación Regional Costa Grande'},
+    {'value': 'coord-montana', 'label': 'Coordinación Regional Montaña'},
+    {'value': 'coord-tierra-caliente', 'label': 'Coordinación Regional Tierra Caliente'},
   ];
 
   @override
