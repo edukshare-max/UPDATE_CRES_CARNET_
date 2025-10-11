@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/version_service.dart';
-import '../ui/app_theme.dart';
+import '../ui/uagro_theme.dart';
 
 /// Pantalla "Acerca de" que muestra información de la aplicación y changelog
 class AboutScreen extends StatelessWidget {
@@ -16,7 +16,7 @@ class AboutScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Acerca de'),
-        backgroundColor: AppTheme.primaryGreen,
+        backgroundColor: UAGroColors.azulMarino,
       ),
       body: versionInfo == null
           ? const Center(
@@ -37,8 +37,8 @@ class AboutScreen extends StatelessWidget {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          AppTheme.primaryGreen,
-                          AppTheme.primaryGreen.withOpacity(0.8),
+                          UAGroColors.azulMarino,
+                          UAGroColors.azulMarino.withOpacity(0.8),
                         ],
                       ),
                     ),
@@ -61,7 +61,7 @@ class AboutScreen extends StatelessWidget {
                           child: Icon(
                             Icons.badge,
                             size: 80,
-                            color: AppTheme.primaryGreen,
+                            color: UAGroColors.azulMarino,
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -109,7 +109,7 @@ class AboutScreen extends StatelessWidget {
                           icon: Icons.school,
                           title: 'Universidad Autónoma de Guerrero',
                           subtitle: 'Centro Regional de Educación Superior',
-                          color: AppTheme.primaryGreen,
+                          color: UAGroColors.azulMarino,
                         ),
                         const SizedBox(height: 16),
                         
@@ -117,7 +117,7 @@ class AboutScreen extends StatelessWidget {
                           icon: Icons.info_outline,
                           title: 'Sistema de Gestión de Carnets',
                           subtitle: 'Control de expedientes estudiantiles con sincronización en la nube',
-                          color: AppTheme.primaryGold,
+                          color: UAGroColors.rojoEscudo,
                         ),
                         const SizedBox(height: 16),
                         
@@ -133,7 +133,7 @@ class AboutScreen extends StatelessWidget {
                         // Changelog
                         Row(
                           children: [
-                            Icon(Icons.history, color: AppTheme.primaryGreen),
+                            Icon(Icons.history, color: UAGroColors.azulMarino),
                             const SizedBox(width: 8),
                             const Text(
                               'Historial de Versiones',
@@ -177,8 +177,8 @@ ${versionService.getChangelogFormatted(maxVersions: 1)}
                             icon: const Icon(Icons.copy),
                             label: const Text('Copiar información'),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.primaryGreen,
-                              side: BorderSide(color: AppTheme.primaryGreen),
+                              foregroundColor: UAGroColors.azulMarino,
+                              side: BorderSide(color: UAGroColors.azulMarino),
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 24,
                                 vertical: 12,
@@ -258,10 +258,10 @@ ${versionService.getChangelogFormatted(maxVersions: 1)}
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isCurrent ? AppTheme.primaryGreen.withOpacity(0.1) : Colors.grey[100],
+        color: isCurrent ? UAGroColors.azulMarino.withOpacity(0.1) : Colors.grey[100],
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isCurrent ? AppTheme.primaryGreen : Colors.grey[300]!,
+          color: isCurrent ? UAGroColors.azulMarino : Colors.grey[300]!,
           width: isCurrent ? 2 : 1,
         ),
       ),
@@ -274,7 +274,7 @@ ${versionService.getChangelogFormatted(maxVersions: 1)}
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryGreen,
+                    color: UAGroColors.azulMarino,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Text(
@@ -292,7 +292,7 @@ ${versionService.getChangelogFormatted(maxVersions: 1)}
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: isCurrent ? AppTheme.primaryGreen : Colors.black87,
+                  color: isCurrent ? UAGroColors.azulMarino : Colors.black87,
                 ),
               ),
               const Spacer(),
