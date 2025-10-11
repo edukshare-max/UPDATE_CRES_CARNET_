@@ -2,11 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../data/api_service.dart';
+import 'dashboard_screen.dart';
 
 class CitaFormScreen extends StatefulWidget {
   final String matricula;
+  final dynamic db;
   
-  const CitaFormScreen({super.key, required this.matricula});
+  const CitaFormScreen({super.key, required this.matricula, this.db});
 
   @override
   State<CitaFormScreen> createState() => _CitaFormScreenState();
@@ -30,6 +32,19 @@ class _CitaFormScreenState extends State<CitaFormScreen> {
         title: Text('Agendar Cita'),
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
+        actions: [
+          // Botón de inicio sutil
+          IconButton(
+            icon: const Icon(Icons.home_outlined, color: Colors.white70, size: 22),
+            tooltip: 'Ir al inicio',
+            onPressed: () {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => DashboardScreen(db: widget.db)),
+                (route) => false,
+              );
+            },
+          ),
+        ],
       ),
       body: Form(
         key: _formKey,

@@ -4,6 +4,7 @@ import '../models/hamilton_test.dart';
 import '../ui/brand.dart';
 import '../ui/uagro_theme.dart';
 import 'test_application_screen.dart';
+import '../dashboard_screen.dart';
 
 /// Pantalla de selección de tests psicológicos
 /// Solo accesible para roles de psicología y admin
@@ -31,6 +32,19 @@ class TestSelectionScreen extends StatelessWidget {
         backgroundColor: UAGroColors.azulMarino,
         iconTheme: IconThemeData(color: Colors.white),
         elevation: 0,
+        actions: [
+          // Botón de inicio sutil
+          IconButton(
+            icon: const Icon(Icons.home_outlined, color: Colors.white70, size: 22),
+            tooltip: 'Ir al inicio',
+            onPressed: () {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => DashboardScreen(db: widget.db)),
+                (route) => false,
+              );
+            },
+          ),
+        ],
       ),
       body: Container(
         decoration: BoxDecoration(

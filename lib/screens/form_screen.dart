@@ -514,7 +514,7 @@ class _FormScreenState extends State<FormScreen> {
     final mobile = isMobile(context);
     
     return Scaffold(
-      appBar: uagroAppBar('CRES Carnets', 'Rellenar / Editar carnet'),
+      appBar: uagroAppBar('CRES Carnets', 'Rellenar / Editar carnet', null, context, widget.db),
       body: Stack(
         children: [
           SafeArea(

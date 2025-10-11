@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import '../ui/uagro_theme.dart';
 import '../ui/widgets/promocion_salud_section.dart';
+import 'dashboard_screen.dart';
 
 /// Pantalla independiente para gestión de Promoción de Salud
 /// Separada del formulario de carnets para mayor claridad
 class PromocionSaludScreen extends StatelessWidget {
-  const PromocionSaludScreen({Key? key}) : super(key: key);
+  final dynamic db;
+  const PromocionSaludScreen({Key? key, this.db}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -16,6 +18,19 @@ class PromocionSaludScreen extends StatelessWidget {
         backgroundColor: Colors.green[700],
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          // Botón de inicio sutil
+          IconButton(
+            icon: const Icon(Icons.home_outlined, color: Colors.white70, size: 22),
+            tooltip: 'Ir al inicio',
+            onPressed: () {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => DashboardScreen(db: db)),
+                (route) => false,
+              );
+            },
+          ),
+        ],
       ),
       body: Container(
         decoration: BoxDecoration(

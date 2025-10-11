@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/version_service.dart';
 import '../ui/uagro_theme.dart';
+import 'dashboard_screen.dart';
 
 /// Pantalla "Acerca de" que muestra información de la aplicación y changelog
 class AboutScreen extends StatelessWidget {
-  const AboutScreen({super.key});
+  final dynamic db;
+  const AboutScreen({super.key, this.db});
 
   @override
   Widget build(BuildContext context) {
@@ -17,6 +19,19 @@ class AboutScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Acerca de'),
         backgroundColor: UAGroColors.azulMarino,
+        actions: [
+          // Botón de inicio sutil
+          IconButton(
+            icon: const Icon(Icons.home_outlined, color: Colors.white70, size: 22),
+            tooltip: 'Ir al inicio',
+            onPressed: () {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => DashboardScreen(db: db)),
+                (route) => false,
+              );
+            },
+          ),
+        ],
       ),
       body: versionInfo == null
           ? const Center(

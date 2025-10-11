@@ -334,7 +334,7 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> {
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (context) => CitaFormScreen(matricula: matricula),
+        builder: (context) => CitaFormScreen(matricula: matricula, db: widget.db),
       ),
     );
 
@@ -1252,6 +1252,8 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> {
             onPressed: _mostrarCitas,
           ),
         ],
+        context,
+        widget.db,
       ),
       body: Row(
         children: [

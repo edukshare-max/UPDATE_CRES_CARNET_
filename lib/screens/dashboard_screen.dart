@@ -226,7 +226,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const AboutScreen(),
+                  builder: (context) => AboutScreen(db: widget.db),
                 ),
               );
             },
@@ -394,7 +394,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               if (await _checkPermission('promociones:read', 'Promoción de Salud')) {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
-                                    builder: (_) => const PromocionSaludScreen(),
+                                    builder: (_) => PromocionSaludScreen(db: widget.db),
                                   ),
                                 );
                               }

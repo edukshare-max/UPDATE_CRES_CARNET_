@@ -1,9 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:cres_carnets_ibmcloud/ui/uagro_theme.dart';
+import 'package:cres_carnets_ibmcloud/screens/dashboard_screen.dart';
 
+/// AppBar con gradiente UAGro y botón de inicio sutil
+PreferredSizeWidget uagroAppBar(String title, [String? subtitle, List<Widget>? actions, BuildContext? context, dynamic db]) {
+  List<Widget> allActions = [];
+  
+  // Agregar botón de inicio sutil si tenemos contexto y db
+  if (context != null && db != null) {
+    allActions.add(
+      IconButton(
+        icon: const Icon(Icons.home_outlined, color: Colors.white70, size: 22),
+        tooltip: 'Ir al inicio',
+        onPressed: () {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => DashboardScreen(db: db)),
+            (route) => false,
+          );
+        },
+      ),
+    );
+  }
+  
+  // Agregar acciones adicionales si las hay
+  if (actions != null) {
+    allActions.addAll(actions);
+  }
 
-/// AppBar con gradiente UAGro
-PreferredSizeWidget uagroAppBar(String title, [String? subtitle, List<Widget>? actions]) {
   return AppBar(
     flexibleSpace: Container(
       decoration: const BoxDecoration(
@@ -26,7 +49,7 @@ PreferredSizeWidget uagroAppBar(String title, [String? subtitle, List<Widget>? a
       ],
     ),
     backgroundColor: Colors.transparent,
-    actions: actions,
+    actions: allActions.isNotEmpty ? allActions : null,
   );
 }
 

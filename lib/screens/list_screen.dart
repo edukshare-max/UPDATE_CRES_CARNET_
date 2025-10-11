@@ -9,7 +9,7 @@ class ListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: uagroAppBar('CRES Carnets', 'Listado de expedientes'),
+      appBar: uagroAppBar('CRES Carnets', 'Listado de expedientes', null, context, widget.db),
       body: Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         child: Column(

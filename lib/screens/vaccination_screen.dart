@@ -8,6 +8,7 @@ import '../ui/uagro_theme.dart';
 import '../utils/vaccination_pdf_generator.dart';
 import '../data/api_service.dart';
 import '../data/db.dart' as DB;
+import 'dashboard_screen.dart';
 import '../data/sync_vacunaciones.dart';
 
 /// Pantalla de gestión de campañas de vacunación
@@ -513,6 +514,17 @@ class _VaccinationScreenState extends State<VaccinationScreen> {
         title: const Text('Sistema de Vacunación'),
         backgroundColor: Colors.purple[700],
         actions: [
+          // Botón de inicio sutil
+          IconButton(
+            icon: const Icon(Icons.home_outlined, color: Colors.white70, size: 22),
+            tooltip: 'Ir al inicio',
+            onPressed: () {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => DashboardScreen(db: _db)),
+                (route) => false,
+              );
+            },
+          ),
           FutureBuilder<List<DB.VacunacionesPendiente>>(
             future: _db.getPendingVacunaciones(),
             builder: (context, snapshot) {
