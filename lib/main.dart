@@ -7,11 +7,15 @@ import 'screens/dashboard_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'data/db.dart' as DB;
 import 'data/auth_service.dart';
+import 'services/version_service.dart';
 // Tema institucional UAGro
 import 'ui/app_theme.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Cargar información de versión
+  await VersionService().loadVersion();
   
   // Diagnóstico de API_BASE_URL solo en debug
   if (kDebugMode) {

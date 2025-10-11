@@ -24,7 +24,28 @@ if (-not (Test-Path "pubspec.yaml")) {
 # Leer versión actual
 $versionFile = Get-Content "version.json" | ConvertFrom-Json
 $version = $versionFile.version
-Write-Host "📌 Versión actual: $version" -ForegroundColor Cyan
+$buildNumber = $versionFile.buildNumber
+Write-Host "📌 Versión: $version (Build $buildNumber)" -ForegroundColor Cyan
+
+# Verificar que la versión en pubspec.yaml coincida
+Write-Host "🔍 Verificando consistencia de versión..." -ForegroundColor Yellow
+$pubspecContent = Get-Content "pubspec.yaml" -Raw
+if ($pubspecContent -match "version:\s*([\d\.]+)\+(\d+)") {
+    $pubspecVersion = $matches[1]
+    $pubspecBuild = [int]$matches[2]
+    
+    if ($pubspecVersion -ne $version -or $pubspecBuild -ne $buildNumber) {
+        Write-Host "❌ Error: Versión inconsistente" -ForegroundColor Red
+        Write-Host "   version.json: $version+$buildNumber" -ForegroundColor Gray
+        Write-Host "   pubspec.yaml: $pubspecVersion+$pubspecBuild" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "   Ejecuta: .\update_version.ps1 para sincronizar" -ForegroundColor Yellow
+        exit 1
+    }
+    Write-Host "   ✅ Versiones sincronizadas" -ForegroundColor Green
+} else {
+    Write-Host "   ⚠️  No se encontró versión en pubspec.yaml" -ForegroundColor Yellow
+}
 
 # Paso 1: Build de la aplicación Flutter
 if (-not $SkipBuild) {

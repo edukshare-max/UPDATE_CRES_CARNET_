@@ -4,6 +4,7 @@ import 'package:cres_carnets_ibmcloud/screens/nueva_nota_screen.dart';
 import 'package:cres_carnets_ibmcloud/screens/vaccination_screen.dart';
 import 'package:cres_carnets_ibmcloud/screens/promocion_salud_screen.dart';
 import 'package:cres_carnets_ibmcloud/screens/auth/login_screen.dart';
+import 'package:cres_carnets_ibmcloud/screens/about_screen.dart';
 import 'package:cres_carnets_ibmcloud/ui/uagro_theme.dart';
 import 'package:cres_carnets_ibmcloud/ui/connection_indicator.dart';
 import 'package:cres_carnets_ibmcloud/data/db.dart' as DB;
@@ -166,6 +167,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            tooltip: 'Acerca de',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AboutScreen(),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Cerrar Sesión',
