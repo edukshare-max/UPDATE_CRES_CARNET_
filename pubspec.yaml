@@ -1,7 +1,7 @@
-﻿name: cres_carnets_ibmcloud
-description: CRES Carnets — Offline-first (Flutter + SQLite) con sincronización a Azure Cosmos DB
+name: cres_carnets_ibmcloud
+description: CRES Carnets - Offline-first (Flutter + SQLite) con sincronizacion a Azure Cosmos DB
 publish_to: "none"
-version: 2.4.0+1
+version: 2.4.8+8
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -26,16 +26,17 @@ dependencies:
   mime: ^1.0.5
   url_launcher: ^6.3.0
   crypto: ^3.0.3   # Firma HMAC para Cosmos
-  shared_preferences: ^2.3.3  # Caché local para optimizar búsquedas
-  connectivity_plus: ^6.0.5  # Detección de conectividad de red
+  shared_preferences: ^2.3.3  # Cach� local para optimizar b�squedas
+  connectivity_plus: ^6.0.5  # Detecci�n de conectividad de red
 
-  # Archivos / exportación
+  # Archivos / exportaci�n
   file_picker: ^8.0.0
   open_filex: ^4.4.0
   pdf: ^3.11.0
   printing: ^5.13.4
+  archive: ^3.6.1  # Extracci�n de archivos ZIP para actualizaciones
   
-  # Tests psicológicos
+  # Tests psicol�gicos
   uuid: ^4.5.1
   fl_chart: ^0.69.0
 
@@ -53,4 +54,5 @@ flutter:
   assets:
     - assets/version.json
   
-  # este archivo ya fue analizado y corregido según necesidades
+  # este archivo ya fue analizado y corregido seg�n necesidades
+

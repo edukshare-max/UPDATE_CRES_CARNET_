@@ -31,28 +31,38 @@ class OfflineManager {
   }
   
   /// Verifica si hay conexión a internet actualmente
+  /// NOTA: Esta función solo verifica conectividad de red (WiFi/Ethernet)
+  /// NO verifica si hay acceso real a internet
   static Future<bool> hasInternetConnection() async {
     try {
       final connectivityResults = await _connectivity.checkConnectivity();
       // Verificar si algún resultado indica conectividad
-      return connectivityResults.any((result) => 
+      final hasConnection = connectivityResults.any((result) => 
         result != ConnectivityResult.none
       );
+      print('🌐 [CONNECTIVITY] Conectividad de red: $hasConnection (${connectivityResults.join(", ")})');
+      return hasConnection;
     } catch (e) {
-      print('Error verificando conectividad: $e');
+      print('❌ [CONNECTIVITY] Error verificando conectividad: $e');
       return false;
     }
   }
   
-  /// Verifica conectividad real haciendo ping al backend
-  static Future<bool> hasRealInternetConnection(String backendUrl) async {
+  /// Verifica conectividad REAL haciendo ping al backend
+  /// Esta es la función que realmente importa para saber si el backend está accesible
+  static Future<bool> canReachBackend(String backendUrl) async {
     try {
-      // Importar http dinámicamente para evitar dependencias circulares
-      final http = await Future.microtask(() => 
-        throw UnimplementedError('Use http client directly'));
+      print('🔍 [CONNECTIVITY] Verificando acceso al backend...');
+      
+      // Importar http aquí para evitar dependencias circulares
+      final http = await Future.microtask(() {
+        // Esta función se llamará desde auth_service que ya tiene http importado
+        throw UnimplementedError('Debe llamarse desde un contexto con http disponible');
+      });
+      
       return false;
     } catch (e) {
-      print('Backend no accesible: $e');
+      print('❌ [CONNECTIVITY] Backend no accesible: $e');
       return false;
     }
   }
@@ -63,6 +73,8 @@ class OfflineManager {
     required String password,
     required String campus,
   }) async {
+    print('💾 [CACHE] Guardando hash para usuario: $username, campus: $campus');
+    
     // Crear hash seguro con PBKDF2
     final salt = '$username:$campus:cres_carnets';
     final hash = _hashPassword(password, salt);
@@ -79,6 +91,7 @@ class OfflineManager {
       value: jsonEncode(cacheData),
     );
     
+    print('✅ [CACHE] Hash guardado exitosamente');
     await _updateLastLoginTimestamp();
   }
   
@@ -89,14 +102,26 @@ class OfflineManager {
     required String campus,
   }) async {
     try {
+      print('🔍 [CACHE] Validando credenciales offline para: $username, campus: $campus');
+      
       // Leer caché
       final cacheJson = await _storage.read(key: _keyPasswordHash);
-      if (cacheJson == null) return false;
+      if (cacheJson == null) {
+        print('❌ [CACHE] No hay cache guardado');
+        return false;
+      }
       
       final cacheData = jsonDecode(cacheJson);
+      print('📦 [CACHE] Cache encontrado - Usuario: ${cacheData['username']}, Campus: ${cacheData['campus']}');
       
       // Verificar usuario y campus
-      if (cacheData['username'] != username || cacheData['campus'] != campus) {
+      if (cacheData['username'] != username) {
+        print('❌ [CACHE] Usuario no coincide: "${cacheData['username']}" vs "$username"');
+        return false;
+      }
+      
+      if (cacheData['campus'] != campus) {
+        print('❌ [CACHE] Campus no coincide: "${cacheData['campus']}" vs "$campus"');
         return false;
       }
       
@@ -105,18 +130,23 @@ class OfflineManager {
       final daysSinceLastLogin = DateTime.now().difference(lastLogin).inDays;
       
       if (daysSinceLastLogin > _maxOfflineDays) {
-        print('Cache expirado: $daysSinceLastLogin días sin conexión');
+        print('❌ [CACHE] Cache expirado: $daysSinceLastLogin días sin conexión (máximo: $_maxOfflineDays)');
         return false;
       }
+      
+      print('⏰ [CACHE] Cache válido (${daysSinceLastLogin} días desde último login)');
       
       // Validar hash de contraseña
       final salt = '$username:$campus:cres_carnets';
       final expectedHash = _hashPassword(password, salt);
       
-      return cacheData['hash'] == expectedHash;
+      final isValid = cacheData['hash'] == expectedHash;
+      print(isValid ? '✅ [CACHE] Hash válido - credenciales correctas' : '❌ [CACHE] Hash inválido - contraseña incorrecta');
+      
+      return isValid;
       
     } catch (e) {
-      print('Error validando credenciales offline: $e');
+      print('❌ [CACHE] Error validando credenciales offline: $e');
       return false;
     }
   }
@@ -166,6 +196,51 @@ class OfflineManager {
   static Future<bool> isOfflineModeEnabled() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_keyOfflineMode) ?? false;
+  }
+  
+  /// Verifica si existen credenciales cacheadas para un usuario
+  static Future<bool> hasCachedCredentials(String username, String campus) async {
+    try {
+      print('🔎 [CACHE] Verificando si existe cache para: $username, campus: $campus');
+      
+      final cacheJson = await _storage.read(key: _keyPasswordHash);
+      if (cacheJson == null) {
+        print('❌ [CACHE] No existe cache');
+        return false;
+      }
+      
+      final cacheData = jsonDecode(cacheJson);
+      print('📦 [CACHE] Cache existe - Usuario: ${cacheData['username']}, Campus: ${cacheData['campus']}');
+      
+      // Verificar que coincidan usuario y campus
+      final matches = cacheData['username'] == username && cacheData['campus'] == campus;
+      print(matches ? '✅ [CACHE] Cache coincide' : '❌ [CACHE] Cache NO coincide');
+      
+      return matches;
+    } catch (e) {
+      print('❌ [CACHE] Error verificando cache: $e');
+      return false;
+    }
+  }
+  
+  /// Obtiene el campus guardado en cache para un usuario (sin validar contraseña)
+  static Future<String?> getCachedCampusForUser(String username) async {
+    try {
+      final cacheJson = await _storage.read(key: _keyPasswordHash);
+      if (cacheJson == null) return null;
+      
+      final cacheData = jsonDecode(cacheJson);
+      
+      // Si el usuario coincide, devolver el campus guardado
+      if (cacheData['username'] == username) {
+        return cacheData['campus'] as String?;
+      }
+      
+      return null;
+    } catch (e) {
+      print('❌ [CACHE] Error obteniendo campus: $e');
+      return null;
+    }
   }
   
   /// Agrega acción a cola de sincronización

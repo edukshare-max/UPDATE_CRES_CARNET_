@@ -1,4 +1,5 @@
 // lib/data/auth_service.dart
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
@@ -71,17 +72,47 @@ class AuthService {
   static const String _userKey = 'auth_user';
 
   /// Iniciar sesión con username, password y campus
-  /// Modo híbrido: intenta online primero, fallback a offline si falla
+  /// Modo híbrido MEJORADO: verifica cache primero, luego intenta online con timeout corto
   static Future<Map<String, dynamic>> login({
     required String username,
     required String password,
     String? campus,
   }) async {
-    // PASO 1: Verificar conectividad
-    final hasConnection = await OfflineManager.hasInternetConnection();
+    // Normalizar campus (asegurar que no sea null o vacío)
+    final normalizedCampus = campus ?? 'cres-llano-largo';
+    print('🔐 Iniciando login para: $username, campus: $normalizedCampus');
     
+    // PASO 1: Verificar si existe cache válido
+    final hasCache = await OfflineManager.hasCachedCredentials(username, normalizedCampus);
+    print('💾 Cache disponible para usuario: $hasCache');
+    
+    // PASO 2: Si NO hay cache, DEBE intentar online (primera vez)
+    if (!hasCache) {
+      print('⚠️  Sin cache - se requiere conexión para primer login');
+    }
+    
+    // PASO 3: Verificar conectividad de red (WiFi/Ethernet)
+    final hasConnection = await OfflineManager.hasInternetConnection();
+    print('🌐 Conectividad de red: $hasConnection');
+    
+    // PASO 4: Si hay cache Y no hay conexión de red -> IR DIRECTO A OFFLINE
+    if (hasCache && !hasConnection) {
+      print('📴 Sin red pero hay cache - login offline directo');
+      return await _tryOfflineLogin(username, password, normalizedCampus);
+    }
+    
+    // PASO 5: Si NO hay conexión y NO hay cache -> ERROR
+    if (!hasConnection && !hasCache) {
+      print('❌ Sin red y sin cache - imposible autenticar');
+      return {
+        'success': false,
+        'error': 'Sin conexión a internet.\n\nDebe conectarse a internet para el primer inicio de sesión.',
+      };
+    }
+    
+    // PASO 6: Intentar login online con timeout MUY CORTO (3 segundos)
     if (hasConnection) {
-      // MODO ONLINE: Intentar autenticación con backend
+      print('🌍 Hay red - intentando login online...');
       try {
         final response = await http.post(
           Uri.parse('$_baseUrl/auth/login'),
@@ -89,26 +120,62 @@ class AuthService {
           body: jsonEncode({
             'username': username,
             'password': password,
-            if (campus != null) 'campus': campus,
+            'campus': normalizedCampus,
           }),
         ).timeout(
-          const Duration(seconds: 15),
-          onTimeout: () => throw Exception('Tiempo de espera agotado'),
+          const Duration(seconds: 3), // REDUCIDO a 3 segundos para detección rápida
+          onTimeout: () {
+            print('⏱️ Timeout (3s) - backend no responde');
+            throw TimeoutException('Backend no respondió en 3 segundos');
+          },
         );
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
+          print('✅ Login online exitoso');
           
           // Guardar token y datos de usuario
+          print('💾 Guardando token...');
           await _storage.write(key: _tokenKey, value: data['access_token']);
-          await _storage.write(key: _userKey, value: jsonEncode(data['user']));
+          
+          print('💾 Guardando datos de usuario...');
+          final userDataJson = jsonEncode(data['user']);
+          print('📦 Datos a guardar: ${userDataJson.substring(0, userDataJson.length > 100 ? 100 : userDataJson.length)}...');
+          await _storage.write(key: _userKey, value: userDataJson);
+          
+          // VERIFICACIÓN INMEDIATA: Leer lo que acabamos de escribir
+          print('🔍 Verificando datos guardados...');
+          final verifyToken = await _storage.read(key: _tokenKey);
+          final verifyUser = await _storage.read(key: _userKey);
+          
+          if (verifyToken != null) {
+            print('✅ Token verificado: ${verifyToken.substring(0, 20)}...');
+          } else {
+            print('❌ ERROR CRÍTICO: Token NO se guardó');
+          }
+          
+          if (verifyUser != null) {
+            print('✅ Datos de usuario verificados: ${verifyUser.substring(0, 50)}...');
+          } else {
+            print('❌ ERROR CRÍTICO: Datos de usuario NO se guardaron');
+          }
           
           // IMPORTANTE: Guardar hash de contraseña para acceso offline futuro
+          // Usar el campus del backend para asegurar consistencia
+          final campusToCache = data['user']['campus'] ?? normalizedCampus;
+          print('💾 Guardando cache con campus: $campusToCache (backend: ${data['user']['campus']}, enviado: $normalizedCampus)');
+          
           await OfflineManager.savePasswordHash(
             username: username,
             password: password,
-            campus: campus ?? data['user']['campus'],
+            campus: campusToCache,
           );
+          
+          // CRÍTICO: Esperar un momento para asegurar que FlutterSecureStorage
+          // complete el flush de datos al disco (problema en Windows)
+          print('⏳ Esperando flush de datos al disco...');
+          await Future.delayed(const Duration(milliseconds: 500));
+          print('✅ Flush completado');
           
           // Deshabilitar modo offline
           await OfflineManager.disableOfflineMode();
@@ -123,29 +190,47 @@ class AuthService {
             'mode': 'online',
           };
         } else if (response.statusCode == 401) {
+          print('❌ Credenciales incorrectas - respuesta 401');
           // Credenciales incorrectas - NO intentar offline
           return {
             'success': false,
             'error': 'Usuario o contraseña incorrectos',
           };
         } else if (response.statusCode == 403) {
+          print('🚫 Acceso denegado - respuesta 403');
           final error = jsonDecode(response.body);
           return {
             'success': false,
             'error': error['detail'] ?? 'Acceso denegado',
           };
         } else {
-          // Error del servidor - intentar offline como fallback
-          return await _tryOfflineLogin(username, password, campus);
+          print('⚠️ Error del servidor (${response.statusCode})');
+          // Error del servidor - intentar offline si hay cache
+          if (hasCache) {
+            print('🔄 Fallback a offline (hay cache disponible)');
+            return await _tryOfflineLogin(username, password, normalizedCampus);
+          }
+          return {
+            'success': false,
+            'error': 'Error del servidor (${response.statusCode})',
+          };
         }
       } catch (e) {
-        print('Error en login online: $e');
-        // Error de conexión - intentar offline como fallback
-        return await _tryOfflineLogin(username, password, campus);
+        print('❌ Excepción en login online: $e');
+        // Error de conexión - intentar offline si hay cache
+        if (hasCache) {
+          print('🔄 Fallback a offline (hay cache disponible)');
+          return await _tryOfflineLogin(username, password, normalizedCampus);
+        }
+        return {
+          'success': false,
+          'error': 'No se pudo conectar al servidor.\n\n${e.toString()}',
+        };
       }
     } else {
-      // MODO OFFLINE: Sin conexión detectada
-      return await _tryOfflineLogin(username, password, campus);
+      // Sin conexión de red detectada
+      print('📴 Sin red - usando modo offline');
+      return await _tryOfflineLogin(username, password, normalizedCampus);
     }
   }
   
@@ -155,32 +240,69 @@ class AuthService {
     String password,
     String? campus,
   ) async {
-    print('Intentando login offline...');
+    print('🔄 Intentando login offline...');
+    print('   📋 Usuario: $username');
+    print('   📋 Campus: $campus');
     
-    // Validar contra cache local
-    final isValid = await OfflineManager.validateOfflineCredentials(
-      username: username,
-      password: password,
-      campus: campus ?? 'llano-largo',
-    );
+    final normalizedCampus = campus ?? 'cres-llano-largo';
     
-    if (!isValid) {
+    // DIAGNÓSTICO: Verificar QUÉ hay en el storage
+    print('🔍 DIAGNÓSTICO: Verificando contenido de FlutterSecureStorage...');
+    final tokenInStorage = await _storage.read(key: _tokenKey);
+    final userInStorage = await _storage.read(key: _userKey);
+    
+    print('   🔑 Token: ${tokenInStorage != null ? "SÍ existe (${tokenInStorage.substring(0, 20)}...)" : "NO existe"}');
+    print('   👤 User: ${userInStorage != null ? "SÍ existe (${userInStorage.substring(0, 50)}...)" : "NO existe"}');
+    
+    // CRÍTICO: Verificar PRIMERO si hay datos de usuario guardados
+    // Si no hay datos de usuario, NO PUEDE hacer login offline
+    final userJson = await _storage.read(key: _userKey);
+    if (userJson == null) {
+      print('❌ No hay datos de usuario guardados - login offline imposible');
+      print('   Usuario debe conectarse a internet y hacer login exitoso primero');
       return {
         'success': false,
-        'error': 'Sin conexión. No se puede validar usuario.\nConéctate a internet para iniciar sesión por primera vez.',
+        'error': 'Sin conexión a internet.\n\nDebe iniciar sesión con internet al menos una vez antes de usar modo offline.',
       };
     }
     
-    // Login offline exitoso - cargar datos de usuario guardados
-    final userJson = await _storage.read(key: _userKey);
-    if (userJson == null) {
+    print('✅ Datos de usuario encontrados en cache');
+    print('   📦 Datos: ${userJson.substring(0, userJson.length > 100 ? 100 : userJson.length)}...');
+    
+    // ESTRATEGIA: Intentar validar con el campus proporcionado
+    // Si falla, intentar buscar cache con cualquier campus para este usuario
+    bool isValid = await OfflineManager.validateOfflineCredentials(
+      username: username,
+      password: password,
+      campus: normalizedCampus,
+    );
+    
+    // Si falla, intentar buscar cache con campus del usuario guardado
+    if (!isValid) {
+      print('⚠️ [CACHE] Validación falló con campus: $normalizedCampus');
+      print('🔄 [CACHE] Intentando obtener campus del cache guardado...');
+      
+      final cachedCampus = await OfflineManager.getCachedCampusForUser(username);
+      if (cachedCampus != null && cachedCampus != normalizedCampus) {
+        print('📦 [CACHE] Encontrado campus en cache: $cachedCampus, reintentando...');
+        isValid = await OfflineManager.validateOfflineCredentials(
+          username: username,
+          password: password,
+          campus: cachedCampus,
+        );
+      }
+    }
+    
+    if (!isValid) {
+      print('❌ Validación offline falló - credenciales incorrectas');
       return {
         'success': false,
-        'error': 'Datos de usuario no disponibles offline',
+        'error': 'Contraseña incorrecta.',
       };
     }
     
     final userData = jsonDecode(userJson);
+    print('✅ Login offline exitoso para: ${userData['username']}');
     
     // Generar token temporal offline (no válido para backend)
     final offlineToken = 'offline_${DateTime.now().millisecondsSinceEpoch}';
@@ -232,10 +354,12 @@ class AuthService {
     }
   }
 
-  /// Cerrar sesión (eliminar token y datos)
+  /// Cerrar sesión (eliminar solo el token, mantener datos para offline)
   static Future<void> logout() async {
+    print('🚪 Cerrando sesión...');
     await _storage.delete(key: _tokenKey);
-    await _storage.delete(key: _userKey);
+    // NO borramos _userKey para permitir login offline posterior
+    print('✅ Sesión cerrada (datos de usuario preservados para modo offline)');
   }
 
   /// Verificar si hay una sesión activa
