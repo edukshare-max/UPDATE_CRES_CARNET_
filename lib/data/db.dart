@@ -144,6 +144,11 @@ class AppDatabase extends _$AppDatabase {
     final query = select(healthRecords)..where((tbl) => tbl.synced.equals(false));
     return await query.get();
   }
+  
+  // Método para debug: obtener TODOS los carnets con su estado de sincronización
+  Future<List<HealthRecord>> getAllRecordsWithSyncStatus() async {
+    return await select(healthRecords).get();
+  }
 
   Future<List<Note>> getPendingNotes() async {
     final query = select(notes)..where((tbl) => tbl.synced.equals(false));
@@ -158,6 +163,12 @@ class AppDatabase extends _$AppDatabase {
   Future<void> markRecordAsSynced(int recordId) async {
     await (update(healthRecords)..where((tbl) => tbl.id.equals(recordId)))
         .write(HealthRecordsCompanion(synced: Value(true)));
+  }
+  
+  // Método para marcar un carnet como pendiente de sincronización
+  Future<void> markRecordAsPending(int recordId) async {
+    await (update(healthRecords)..where((tbl) => tbl.id.equals(recordId)))
+        .write(HealthRecordsCompanion(synced: Value(false)));
   }
 
   Future<void> markNoteAsSynced(int noteId) async {

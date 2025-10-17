@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'offline_manager.dart';
+import 'sync_service.dart';
+import 'db.dart';
 
 /// Modelo de datos del usuario autenticado
 class AuthUser {
@@ -70,6 +72,7 @@ class AuthService {
   // Keys para almacenamiento seguro
   static const String _tokenKey = 'auth_token';
   static const String _userKey = 'auth_user';
+  static const String _passwordKey = 'cached_password'; // Para renovación automática
 
   /// Iniciar sesión con username, password y campus
   /// Modo híbrido MEJORADO: verifica cache primero, luego intenta online con timeout corto
@@ -143,6 +146,10 @@ class AuthService {
           print('📦 Datos a guardar: ${userDataJson.substring(0, userDataJson.length > 100 ? 100 : userDataJson.length)}...');
           await _storage.write(key: _userKey, value: userDataJson);
           
+          // Guardar contraseña (encriptada) para renovación automática de token
+          print('🔐 Guardando credenciales para renovación automática...');
+          await _storage.write(key: _passwordKey, value: password);
+          
           // VERIFICACIÓN INMEDIATA: Leer lo que acabamos de escribir
           print('🔍 Verificando datos guardados...');
           final verifyToken = await _storage.read(key: _tokenKey);
@@ -180,8 +187,12 @@ class AuthService {
           // Deshabilitar modo offline
           await OfflineManager.disableOfflineMode();
           
-          // Intentar sincronizar datos pendientes
-          await _syncPendingData();
+          // Intentar sincronizar datos pendientes en background
+          _syncPendingData().then((_) {
+            print('[SYNC] Sincronización en background completada');
+          }).catchError((e) {
+            print('[SYNC] Error en sincronización background: $e');
+          });
           
           return {
             'success': true,
@@ -323,34 +334,45 @@ class AuthService {
   /// Sincroniza datos pendientes cuando hay conexión
   static Future<void> _syncPendingData() async {
     try {
-      final queue = await OfflineManager.getSyncQueue();
-      if (queue.isEmpty) return;
+      print('\n[SYNC] 🔄 Iniciando sincronización automática de datos pendientes...');
       
-      print('Sincronizando ${queue.length} acciones pendientes...');
-      
-      for (final item in queue) {
-        try {
-          // Aquí iría la lógica de sincronización según el tipo de acción
-          // Por ahora solo registramos en log
-          await OfflineManager.addToSyncQueue(
-            action: 'audit_log',
-            data: {
-              'action': item['action'],
-              'synced_at': DateTime.now().toIso8601String(),
-            },
-          );
-          
-          // Remover item de la cola
-          await OfflineManager.removeSyncQueueItem(item['id']);
-        } catch (e) {
-          print('Error sincronizando item ${item['id']}: $e');
-        }
+      // Importar dinámicamente para evitar dependencias circulares
+      final db = await _getDatabase();
+      if (db == null) {
+        print('[SYNC] ⚠️ No se pudo obtener instancia de base de datos');
+        return;
       }
-      
+
+      // Usar SyncService para sincronizar todo
+      final syncService = SyncService(db);
+      final result = await syncService.syncAll();
+
+      // Log del resultado
+      if (result.hasSuccess) {
+        print('[SYNC] ✅ Sincronización exitosa: ${result.totalSynced} items');
+      }
+      if (result.hasErrors) {
+        print('[SYNC] ⚠️ Errores en sincronización: ${result.totalErrors} items fallaron');
+      }
+      if (!result.hasSuccess && !result.hasErrors) {
+        print('[SYNC] ℹ️ No había datos pendientes para sincronizar');
+      }
+
+      // Actualizar timestamp de última sincronización
       await OfflineManager.updateLastSyncTimestamp();
-      print('Sincronización completada');
+      print('[SYNC] 🏁 Proceso de sincronización completado\n');
     } catch (e) {
-      print('Error en sincronización: $e');
+      print('[SYNC] ❌ Error en sincronización automática: $e');
+    }
+  }
+
+  /// Obtiene la instancia de base de datos
+  static Future<AppDatabase?> _getDatabase() async {
+    try {
+      return AppDatabase();
+    } catch (e) {
+      print('[SYNC] Error creando instancia de base de datos: $e');
+      return null;
     }
   }
 
@@ -371,6 +393,62 @@ class AuthService {
   /// Obtener el token JWT actual
   static Future<String?> getToken() async {
     return await _storage.read(key: _tokenKey);
+  }
+
+  /// Renovar token automáticamente cuando expire
+  /// Retorna true si se renovó exitosamente
+  static Future<bool> renewTokenIfExpired() async {
+    print('🔄 Verificando si el token necesita renovación...');
+    
+    // Obtener credenciales guardadas
+    final user = await getCurrentUser();
+    final cachedPassword = await _storage.read(key: _passwordKey);
+    
+    if (user == null || cachedPassword == null) {
+      print('❌ No hay credenciales guardadas para renovar token');
+      return false;
+    }
+    
+    // Verificar conectividad
+    final hasConnection = await OfflineManager.hasInternetConnection();
+    if (!hasConnection) {
+      print('📴 Sin conexión - no se puede renovar token');
+      return false;
+    }
+    
+    print('🔐 Renovando token para usuario: ${user.username}');
+    
+    try {
+      // Intentar login silencioso con credenciales guardadas
+      final response = await http.post(
+        Uri.parse('$_baseUrl/auth/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'username': user.username,
+          'password': cachedPassword,
+          'campus': user.campus,
+        }),
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => throw TimeoutException('Timeout renovando token'),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final newToken = data['access_token'];
+        
+        // Guardar nuevo token
+        await _storage.write(key: _tokenKey, value: newToken);
+        print('✅ Token renovado exitosamente');
+        return true;
+      } else {
+        print('❌ Error renovando token: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      print('❌ Excepción renovando token: $e');
+      return false;
+    }
   }
 
   /// Obtener el usuario actual
@@ -601,10 +679,11 @@ class AuthService {
   }
   
   /// Obtiene información del estado de conexión y cache
-  static Future<Map<String, dynamic>> getConnectionInfo() async {
+  /// [db] - Opcional: instancia de AppDatabase para contar registros pendientes
+  static Future<Map<String, dynamic>> getConnectionInfo({dynamic db}) async {
     final hasInternet = await OfflineManager.hasInternetConnection();
     final isOffline = await OfflineManager.isOfflineModeEnabled();
-    final cacheInfo = await OfflineManager.getCacheInfo();
+    final cacheInfo = await OfflineManager.getCacheInfo(db: db);
     
     return {
       'hasInternet': hasInternet,
@@ -622,6 +701,12 @@ class AuthService {
       }
       
       await _syncPendingData();
+
+      // Si veníamos de un modo offline, deshabilitarlo ahora que hay conexión
+      if (await OfflineManager.isOfflineModeEnabled()) {
+        await OfflineManager.disableOfflineMode();
+        print('[SYNC] 🌐 Conexión restaurada: modo offline deshabilitado');
+      }
       return true;
     } catch (e) {
       print('Error en sincronización forzada: $e');

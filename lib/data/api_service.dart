@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'cache_service.dart';
 import 'auth_service.dart' as auth;
+import '../utils/sync_logger.dart';
 
 /// URL del backend, configurable via environment o fallback
 const String baseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'https://fastapi-backend-o7ks.onrender.com');
@@ -31,6 +32,18 @@ class ApiService {
       return _isBackendWarm;
     } catch (e) {
       print('⚠️ Backend aún no responde: $e');
+      return false;
+    }
+  }
+  
+  /// Test de conexión al backend (para diagnósticos)
+  static Future<bool> testConnection() async {
+    try {
+      final url = Uri.parse('$baseUrl/health');
+      final resp = await http.get(url).timeout(const Duration(seconds: 10));
+      return resp.statusCode == 200;
+    } catch (e) {
+      print('❌ Test de conexión falló: $e');
       return false;
     }
   }
@@ -90,8 +103,12 @@ class ApiService {
     required String cuerpo,
     required String tratante,
     String? idOverride,
+    DateTime? createdAt,
   }) async {
     try {
+      // Obtener token JWT (opcional para /notas, pero recomendado)
+      final token = await auth.AuthService.getToken();
+      
       final url = Uri.parse('$baseUrl/notas');
       final payload = {
         'matricula': matricula,
@@ -99,21 +116,54 @@ class ApiService {
         'cuerpo': cuerpo,
         'tratante': tratante,
         if (idOverride != null) 'id': idOverride,
+        if (createdAt != null) 'createdAt': createdAt.toIso8601String(),
       };
-      print('POST $url');
-      print('Payload: $payload');
+      
+      print('[SYNC] 📤 Enviando nota a servidor...');
+      print('[SYNC]   - Matrícula: $matricula');
+      print('[SYNC]   - ID override: $idOverride');
+      print('[SYNC]   - CreatedAt: ${createdAt?.toIso8601String()}');
+      
+      final headers = {
+        'Content-Type': 'application/json',
+        if (token != null && !token.startsWith('offline_')) 
+          'Authorization': 'Bearer $token',
+      };
+      
       final resp = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode(payload),
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw Exception('Timeout: El servidor no respondió en 30 segundos');
+        },
       );
-      print('Status: ${resp.statusCode}');
-      print('Body: ${resp.body}');
-      return resp.statusCode == 200 || resp.statusCode == 201;
+      
+      print('[SYNC] 📥 Respuesta del servidor: ${resp.statusCode}');
+      
+      if (resp.statusCode == 200 || resp.statusCode == 201) {
+        print('[SYNC] ✅ Nota sincronizada exitosamente');
+        await CacheService.invalidateNotas(matricula);
+        return true;
+      } else {
+        print('[SYNC] ❌ Error del servidor: ${resp.statusCode} - ${resp.body}');
+        return false;
+      }
     } catch (e) {
-      print('Error en pushSingleNote: $e');
+      print('[SYNC] ❌ Error en pushSingleNote: $e');
       return false;
     }
+  }
+
+  // Resultado detallado de la sincronización
+  static Map<String, dynamic> _syncResult(bool success, {String? error, int? statusCode}) {
+    return {
+      'success': success,
+      'error': error,
+      'statusCode': statusCode,
+    };
   }
 
   // Crea un carnet desde el formulario y lo guarda en la nube
@@ -124,6 +174,12 @@ class ApiService {
       if (token == null) {
         print('[CARNET] ⚠️ No hay token JWT, no se puede sincronizar');
         return false;
+      }
+      
+      // Si está en modo offline, retornar FALSE para que quede pendiente de sincronización
+      if (token.startsWith('offline_')) {
+        print('[CARNET] ℹ️ Modo offline detectado - marcando como NO sincronizado (pendiente)');
+        return false; // Dejarlo pendiente para sincronizar cuando haya internet
       }
 
       // Determinar si es creación (sin ID) o edición (con ID)
@@ -146,6 +202,14 @@ class ApiService {
       print('Payload: $data');
       print('Es edición: $isEdit');
       print('ID: ${data.containsKey('id') ? data['id'] : 'NO'}');
+      
+      // Log detallado para diagnóstico
+      SyncLogger.log('=== SINCRONIZACIÓN DE CARNET ===');
+      SyncLogger.log('Método: $method');
+      SyncLogger.log('URL: $url');
+      SyncLogger.log('Matrícula: ${data['matricula']}');
+      SyncLogger.log('Nombre: ${data['nombreCompleto']}');
+      SyncLogger.log('Es edición: $isEdit');
       
       final http.Response resp;
       if (isEdit) {
@@ -172,31 +236,107 @@ class ApiService {
       print('Response Body: ${resp.body}');
       print('Response Headers: ${resp.headers}');
       
+      SyncLogger.log('Status HTTP: ${resp.statusCode}');
+      SyncLogger.log('Response Body: ${resp.body}');
+      
       if (resp.statusCode == 200 || resp.statusCode == 201) {
         print('[CARNET] ✅ RESPUESTA EXITOSA - Status: ${resp.statusCode}');
+        SyncLogger.log('✅ ÉXITO - Carnet sincronizado correctamente');
         try {
           final responseData = jsonDecode(resp.body);
           print('[CARNET] Guardado exitoso - Respuesta parseada: $responseData');
           if (responseData.containsKey('id')) {
             print('[CARNET] ID del carnet en respuesta: ${responseData['id']}');
+            SyncLogger.log('ID asignado por el servidor: ${responseData['id']}');
           }
           return true;
         } catch (e) {
           print('[CARNET] Warning: respuesta no JSON pero status OK - Error: $e');
           print('[CARNET] ✅ CONSIDERANDO COMO ÉXITO por status 2xx');
+          SyncLogger.log('⚠️ Respuesta no JSON pero status 2xx - considerando éxito');
           return true; // Status 2xx = éxito aunque no sea JSON válido
         }
       } else if (resp.statusCode == 401 || resp.statusCode == 403) {
-        print('[CARNET] ⚠️ Token expirado o sin permisos, guardado solo local');
+        print('[CARNET] ⚠️ Token expirado o sin permisos - Status: ${resp.statusCode}');
+        print('[CARNET] ⚠️ Respuesta del servidor: ${resp.body}');
+        SyncLogger.log('❌ ERROR ${resp.statusCode} - Token expirado o sin permisos');
+        SyncLogger.log('Respuesta: ${resp.body}');
+        
+        // Intentar renovar token automáticamente si es 401
+        if (resp.statusCode == 401) {
+          print('[CARNET] 🔄 Intentando renovar token automáticamente...');
+          SyncLogger.log('🔄 Intentando renovar token automáticamente...');
+          
+          final renewed = await auth.AuthService.renewTokenIfExpired();
+          if (renewed) {
+            print('[CARNET] ✅ Token renovado - reintentando sincronización...');
+            SyncLogger.log('✅ Token renovado exitosamente - reintentando...');
+            
+            // Reintentar la solicitud con el nuevo token
+            final newToken = await auth.AuthService.getToken();
+            final http.Response retryResp;
+            
+            if (isEdit) {
+              retryResp = await http.put(
+                url,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer $newToken',
+                },
+                body: jsonEncode(data),
+              );
+            } else {
+              retryResp = await http.post(
+                url,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer $newToken',
+                },
+                body: jsonEncode(data),
+              );
+            }
+            
+            SyncLogger.log('Status HTTP (reintento): ${retryResp.statusCode}');
+            
+            if (retryResp.statusCode == 200 || retryResp.statusCode == 201) {
+              print('[CARNET] ✅ Sincronización exitosa después de renovar token');
+              SyncLogger.log('✅ ÉXITO después de renovar token');
+              return true;
+            } else {
+              print('[CARNET] ❌ Fallo después de renovar token: ${retryResp.statusCode}');
+              SyncLogger.log('❌ Fallo después de renovar token: ${retryResp.statusCode}');
+              return false;
+            }
+          } else {
+            print('[CARNET] ❌ No se pudo renovar token');
+            SyncLogger.log('❌ No se pudo renovar token - requiere login manual');
+          }
+        }
+        
         return false;
       } else {
-        print('[CARNET] ❌ ERROR - Status code no exitoso: ${resp.statusCode}');
-        print('[CARNET] ❌ ERROR - Body: ${resp.body}');
+        print('[CARNET] ❌ ERROR HTTP ${resp.statusCode}');
+        print('[CARNET] ❌ Body completo: ${resp.body}');
+        print('[CARNET] ❌ Método: $method | URL: $url');
+        SyncLogger.log('❌ ERROR HTTP ${resp.statusCode}');
+        SyncLogger.log('Body: ${resp.body}');
+        SyncLogger.log('Este error indica:');
+        if (resp.statusCode == 400) {
+          SyncLogger.log('  → Datos mal formateados o inválidos');
+        } else if (resp.statusCode == 422) {
+          SyncLogger.log('  → Validación fallida (ej: matrícula duplicada, campos requeridos faltantes)');
+        } else if (resp.statusCode == 404) {
+          SyncLogger.log('  → Recurso no encontrado (endpoint incorrecto)');
+        } else if (resp.statusCode >= 500) {
+          SyncLogger.log('  → Error interno del servidor');
+        }
         return false;
       }
     } catch (e) {
       print('ERROR CRÍTICO en pushSingleCarnet: $e');
       print('Stack trace: ${StackTrace.current}');
+      SyncLogger.log('❌ ERROR CRÍTICO: $e');
+      SyncLogger.log('Stack trace: ${StackTrace.current}');
       return false;
     }
   }
@@ -765,6 +905,44 @@ static Future<Map<String, dynamic>?> getCitaById(String citaId) async {
     } catch (e) {
       print('[VACUNACION] Error al obtener historial: $e');
       return [];
+    }
+  }
+
+  /// Crea un registro de vacunación individual en el servidor
+  static Future<Map<String, dynamic>?> createVacunacion(Map<String, dynamic> payload) async {
+    try {
+      // Obtener token JWT
+      final token = await auth.AuthService.getToken();
+      if (token == null) {
+        print('[VACUNACION] ⚠️ No hay token JWT para crear vacunación');
+        return null;
+      }
+
+      final matricula = payload['matricula'];
+      if (matricula == null || matricula.isEmpty) {
+        print('[VACUNACION] ⚠️ Matrícula requerida');
+        return null;
+      }
+
+      final url = Uri.parse('$baseUrl/carnet/$matricula/vacunacion');
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(payload),
+      ).timeout(_normalTimeout);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body);
+      } else {
+        print('[VACUNACION] Error HTTP ${response.statusCode}: ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      print('[VACUNACION] Error al crear vacunación: $e');
+      return null;
     }
   }
 // CIERRA la clase

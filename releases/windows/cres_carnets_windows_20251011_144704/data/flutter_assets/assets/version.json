@@ -1,0 +1,50 @@
+{
+  "version": "2.4.1",
+  "buildNumber": 1,
+  "releaseDate": "2025-10-11",
+  "channel": "stable",
+  "minimumVersion": "2.0.0",
+  "changelog": [
+    {
+      "version": "2.4.0",
+      "date": "2025-10-11",
+      "changes": [
+        "Odontograma Profesional dual: infantil (20 dientes) y adulto (32 dientes)",
+        "5 superficies por diente con click directo",
+        "14 condiciones dentales con colores profesionales",
+        "PDF A4 horizontal optimizado y centrado",
+        "5 Tests de Psicología: Hamilton, Beck, DASS-21, Plutchik, MBI",
+        "Mejoras UX: paneles optimizados, feedback inmediato, card discreta"
+      ]
+    },
+    {
+      "version": "2.3.2",
+      "date": "2025-10-10",
+      "changes": [
+        "Sistema de instalador profesional",
+        "88 instituciones UAGro implementadas",
+        "Autocompletado inteligente en panel admin",
+        "Sistema de autenticación completo",
+        "Modo híbrido online/offline"
+      ]
+    },
+    {
+      "version": "2.3.1",
+      "date": "2025-10-10",
+      "changes": [
+        "88 instituciones organizadas por categoría",
+        "Búsqueda fuzzy en selector de campus",
+        "Eliminado endpoint temporal de seguridad"
+      ]
+    },
+    {
+      "version": "2.0.0",
+      "date": "2025-10-09",
+      "changes": [
+        "Sistema de autenticación JWT",
+        "Modo híbrido inteligente",
+        "Sincronización automática"
+      ]
+    }
+  ]
+}

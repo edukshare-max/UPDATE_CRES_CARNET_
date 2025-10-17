@@ -1,4 +1,5 @@
 // lib/ui/connection_indicator.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../data/auth_service.dart';
@@ -18,12 +19,22 @@ class _ConnectionIndicatorState extends State<ConnectionIndicator> {
   bool _isOfflineMode = false;
   int _pendingSync = 0;
   bool _isSyncing = false;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
+  StreamSubscription<bool>? _offlineModeSub;
 
   @override
   void initState() {
     super.initState();
     _checkConnection();
     _listenToConnectivity();
+    _listenToOfflineMode();
+  }
+
+  @override
+  void dispose() {
+    _connectivitySub?.cancel();
+    _offlineModeSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _checkConnection() async {
@@ -38,7 +49,7 @@ class _ConnectionIndicatorState extends State<ConnectionIndicator> {
   }
 
   void _listenToConnectivity() {
-    OfflineManager.connectivityStream.listen((results) async {
+    _connectivitySub = OfflineManager.connectivityStream.listen((results) async {
       final hasConnection = results.any((result) => result != ConnectivityResult.none);
       if (mounted) {
         setState(() {
@@ -49,6 +60,18 @@ class _ConnectionIndicatorState extends State<ConnectionIndicator> {
         if (hasConnection && _isOfflineMode) {
           await _syncNow();
         }
+      }
+    });
+  }
+
+  void _listenToOfflineMode() {
+    _offlineModeSub = OfflineManager.offlineModeStream.listen((isOffline) async {
+      if (!mounted) return;
+      setState(() {
+        _isOfflineMode = isOffline;
+      });
+      if (!isOffline) {
+        await _checkConnection();
       }
     });
   }
@@ -180,12 +203,22 @@ class ConnectionBadge extends StatefulWidget {
 
 class _ConnectionBadgeState extends State<ConnectionBadge> {
   bool _isOfflineMode = false;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
+  StreamSubscription<bool>? _offlineModeSub;
 
   @override
   void initState() {
     super.initState();
     _checkOfflineMode();
     _listenToConnectivity();
+    _listenToOfflineMode();
+  }
+
+  @override
+  void dispose() {
+    _connectivitySub?.cancel();
+    _offlineModeSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _checkOfflineMode() async {
@@ -198,11 +231,18 @@ class _ConnectionBadgeState extends State<ConnectionBadge> {
   }
 
   void _listenToConnectivity() {
-    OfflineManager.connectivityStream.listen((results) async {
-      final hasConnection = results.any((result) => result != ConnectivityResult.none);
-      if (!hasConnection && mounted) {
-        await _checkOfflineMode();
-      }
+    _connectivitySub = OfflineManager.connectivityStream.listen((results) async {
+      if (!mounted) return;
+      await _checkOfflineMode();
+    });
+  }
+
+  void _listenToOfflineMode() {
+    _offlineModeSub = OfflineManager.offlineModeStream.listen((isOffline) {
+      if (!mounted) return;
+      setState(() {
+        _isOfflineMode = isOffline;
+      });
     });
   }
 

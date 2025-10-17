@@ -4,7 +4,7 @@
 ; ============================================
 
 #define MyAppName "CRES Carnets UAGro"
-#define MyAppVersion "2.3.2"
+#define MyAppVersion "2.4.17"
 #define MyAppPublisher "Universidad Autónoma de Guerrero"
 #define MyAppURL "https://uagro.mx"
 #define MyAppExeName "cres_carnets_ibmcloud.exe"
@@ -35,16 +35,12 @@ ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 UninstallDisplayIcon={app}\{#MyAppExeName}
 
-; Páginas del wizard
-WizardImageFile=..\installer\wizard_image.bmp
-WizardSmallImageFile=..\installer\wizard_small.bmp
-
 [Languages]
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: checked
-Name: "quicklaunchicon"; Description: "Crear icono de inicio rápido"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+Name: "desktopicon"; Description: "Crear icono en el escritorio"; GroupDescription: "Iconos adicionales"
+Name: "quicklaunchicon"; Description: "Crear icono de inicio rapido"; GroupDescription: "Iconos adicionales"
 
 [Files]
 ; Copiar todo el contenido del build de Flutter

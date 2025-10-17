@@ -49,8 +49,12 @@ class SyncService {
           } else {
             result.recordsErrors++;
             print('[SYNC] ❌ Error al sincronizar carnet ${record.matricula}: respuesta false');
-            // Log adicional para debugging
-            print('[SYNC] Carnet data: matricula=${record.matricula}, id=${record.id}');
+            // Log adicional para debugging - verificar consola de logs para más detalles
+            print('[SYNC] 🔍 Detalles del carnet fallido:');
+            print('   - Matrícula: ${record.matricula}');
+            print('   - ID local: ${record.id}');
+            print('   - Nombre: ${record.nombreCompleto}');
+            print('[SYNC] 💡 Revisa los logs de [CARNET] arriba para ver el error HTTP específico');
           }
         } catch (e) {
           print('Error syncing record ${record.id}: $e');
@@ -73,25 +77,98 @@ class SyncService {
             cuerpo: note.cuerpo,
             tratante: note.tratante ?? '',
             idOverride: 'nota_local_${note.id}',
+            createdAt: note.createdAt,
           );
 
           if (success) {
             await db.markNoteAsSynced(note.id);
             result.notesSynced++;
-            print('[SYNC] Nota ${note.id} sincronizada exitosamente');
+            print('[SYNC] ✅ Nota ${note.id} sincronizada exitosamente');
           } else {
             result.notesErrors++;
-            print('[SYNC] Error al sincronizar nota ${note.id}: respuesta false');
+            print('[SYNC] ❌ Error al sincronizar nota ${note.id}: respuesta false');
           }
         } catch (e) {
-          print('Error syncing note ${note.id}: $e');
+          print('[SYNC] ❌ Error syncing note ${note.id}: $e');
           result.notesErrors++;
         }
       }
     } catch (e) {
-      print('Error getting pending notes: $e');
+      print('[SYNC] ❌ Error getting pending notes: $e');
     }
 
+    // Sincronizar citas pendientes
+    try {
+      final pendingCitas = await db.getPendingCitas();
+      print('📅 SyncService: ${pendingCitas.length} citas pendientes para sincronizar');
+      for (final cita in pendingCitas) {
+        try {
+          final citaData = {
+            'matricula': cita.matricula,
+            'inicio': cita.inicio.toIso8601String(),
+            'fin': cita.fin.toIso8601String(),
+            'motivo': cita.motivo,
+            'departamento': cita.departamento,
+            'estado': cita.estado,
+            'googleEventId': cita.googleEventId,
+            'htmlLink': cita.htmlLink,
+          };
+
+          final response = await ApiService.createCita(citaData);
+          if (response != null) {
+            await db.markCitaAsSynced(cita.id);
+            result.citasSynced++;
+            print('[SYNC] ✅ Cita ${cita.id} sincronizada exitosamente');
+          } else {
+            result.citasErrors++;
+            print('[SYNC] ❌ Error al sincronizar cita ${cita.id}: respuesta null');
+          }
+        } catch (e) {
+          print('[SYNC] ❌ Error syncing cita ${cita.id}: $e');
+          result.citasErrors++;
+        }
+      }
+    } catch (e) {
+      print('[SYNC] ❌ Error getting pending citas: $e');
+    }
+
+    // Sincronizar vacunaciones pendientes
+    try {
+      final pendingVacunaciones = await db.getPendingVacunaciones();
+      print('💉 SyncService: ${pendingVacunaciones.length} vacunaciones pendientes para sincronizar');
+      for (final vac in pendingVacunaciones) {
+        try {
+          final vacData = {
+            'matricula': vac.matricula,
+            'nombreEstudiante': vac.nombreEstudiante,
+            'campana': vac.campana,
+            'vacuna': vac.vacuna,
+            'dosis': vac.dosis,
+            'lote': vac.lote,
+            'aplicadoPor': vac.aplicadoPor,
+            'fechaAplicacion': vac.fechaAplicacion,
+            'observaciones': vac.observaciones,
+          };
+
+          final response = await ApiService.createVacunacion(vacData);
+          if (response != null) {
+            await db.markVacunacionAsSynced(vac.id);
+            result.vacunacionesSynced++;
+            print('[SYNC] ✅ Vacunación ${vac.id} sincronizada exitosamente');
+          } else {
+            result.vacunacionesErrors++;
+            print('[SYNC] ❌ Error al sincronizar vacunación ${vac.id}: respuesta null');
+          }
+        } catch (e) {
+          print('[SYNC] ❌ Error syncing vacunación ${vac.id}: $e');
+          result.vacunacionesErrors++;
+        }
+      }
+    } catch (e) {
+      print('[SYNC] ❌ Error getting pending vacunaciones: $e');
+    }
+
+    print('🏁 SyncService: Sincronización completada - $result');
     return result;
   }
 
@@ -157,15 +234,52 @@ class SyncResult {
   int recordsErrors = 0;
   int notesSynced = 0;
   int notesErrors = 0;
+  int citasSynced = 0;
+  int citasErrors = 0;
+  int vacunacionesSynced = 0;
+  int vacunacionesErrors = 0;
 
-  bool get hasErrors => recordsErrors > 0 || notesErrors > 0;
-  bool get hasSuccess => recordsSynced > 0 || notesSynced > 0;
+  bool get hasErrors => 
+      recordsErrors > 0 || 
+      notesErrors > 0 || 
+      citasErrors > 0 || 
+      vacunacionesErrors > 0;
+      
+  bool get hasSuccess => 
+      recordsSynced > 0 || 
+      notesSynced > 0 || 
+      citasSynced > 0 || 
+      vacunacionesSynced > 0;
   
-  int get totalSynced => recordsSynced + notesSynced;
-  int get totalErrors => recordsErrors + notesErrors;
+  int get totalSynced => 
+      recordsSynced + 
+      notesSynced + 
+      citasSynced + 
+      vacunacionesSynced;
+      
+  int get totalErrors => 
+      recordsErrors + 
+      notesErrors + 
+      citasErrors + 
+      vacunacionesErrors;
+
+  int get totalPending => totalSynced + totalErrors;
 
   @override
   String toString() {
-    return 'SyncResult(carnets: $recordsSynced✓ ${recordsErrors}✗, notas: $notesSynced✓ ${notesErrors}✗)';
+    final parts = <String>[];
+    if (recordsSynced > 0 || recordsErrors > 0) {
+      parts.add('carnets: $recordsSynced✓ ${recordsErrors}✗');
+    }
+    if (notesSynced > 0 || notesErrors > 0) {
+      parts.add('notas: $notesSynced✓ ${notesErrors}✗');
+    }
+    if (citasSynced > 0 || citasErrors > 0) {
+      parts.add('citas: $citasSynced✓ ${citasErrors}✗');
+    }
+    if (vacunacionesSynced > 0 || vacunacionesErrors > 0) {
+      parts.add('vacunaciones: $vacunacionesSynced✓ ${vacunacionesErrors}✗');
+    }
+    return 'SyncResult(${parts.join(', ')})';
   }
 }

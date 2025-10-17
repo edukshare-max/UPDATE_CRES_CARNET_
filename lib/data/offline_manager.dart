@@ -20,6 +20,7 @@ class OfflineManager {
   static const _keyOfflineMode = 'offline_mode_enabled';
   static const _keySyncQueue = 'offline_sync_queue';
   static const _keyLastSyncTimestamp = 'last_sync_timestamp';
+  static final _offlineModeController = StreamController<bool>.broadcast();
   
   // Configuración
   static const _maxOfflineDays = 7; // Máximo días permitidos sin conexión
@@ -29,6 +30,9 @@ class OfflineManager {
   static Stream<List<ConnectivityResult>> get connectivityStream {
     return _connectivity.onConnectivityChanged;
   }
+
+  /// Stream de cambios en modo offline (true = offline habilitado)
+  static Stream<bool> get offlineModeStream => _offlineModeController.stream;
   
   /// Verifica si hay conexión a internet actualmente
   /// NOTA: Esta función solo verifica conectividad de red (WiFi/Ethernet)
@@ -184,12 +188,14 @@ class OfflineManager {
   static Future<void> enableOfflineMode() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyOfflineMode, true);
+    _offlineModeController.add(true);
   }
   
   /// Deshabilita modo offline
   static Future<void> disableOfflineMode() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyOfflineMode, false);
+    _offlineModeController.add(false);
   }
   
   /// Verifica si modo offline está habilitado
@@ -316,21 +322,41 @@ class OfflineManager {
     await prefs.remove(_keyOfflineMode);
     await prefs.remove(_keySyncQueue);
     await prefs.remove(_keyLastSyncTimestamp);
+    _offlineModeController.add(false);
   }
   
   /// Obtiene información del estado de cache
-  static Future<Map<String, dynamic>> getCacheInfo() async {
+  /// [db] - Opcional: instancia de AppDatabase para contar registros pendientes
+  static Future<Map<String, dynamic>> getCacheInfo({dynamic db}) async {
     final lastLogin = await getLastLoginTimestamp();
     final lastSync = await getLastSyncTimestamp();
     final queueCount = await getSyncQueueCount();
     final offlineMode = await isOfflineModeEnabled();
     final hasCache = await _storage.read(key: _keyPasswordHash) != null;
     
+    // Contar registros pendientes en la base de datos
+    int dbPendingCount = 0;
+    if (db != null) {
+      try {
+        final pendingRecords = await db.getPendingRecords();
+        final pendingNotes = await db.getPendingNotes();
+        final pendingCitas = await db.getPendingCitas();
+        final pendingVacunaciones = await db.getPendingVacunaciones();
+        dbPendingCount = pendingRecords.length + pendingNotes.length + 
+                        pendingCitas.length + pendingVacunaciones.length;
+        print('[CACHE] Registros pendientes en DB: carnets=${pendingRecords.length}, notas=${pendingNotes.length}, citas=${pendingCitas.length}, vacunaciones=${pendingVacunaciones.length}');
+      } catch (e) {
+        print('[CACHE] Error contando registros pendientes: $e');
+      }
+    }
+    
+    final totalPending = queueCount + dbPendingCount;
+    
     return {
       'hasCache': hasCache,
       'lastLogin': lastLogin?.toIso8601String(),
       'lastSync': lastSync?.toIso8601String(),
-      'pendingSync': queueCount,
+      'pendingSync': totalPending,
       'offlineMode': offlineMode,
       'daysSinceLastLogin': lastLogin != null 
         ? DateTime.now().difference(lastLogin).inDays 

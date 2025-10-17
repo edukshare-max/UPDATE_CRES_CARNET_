@@ -446,17 +446,15 @@ class _FormScreenState extends State<FormScreen> {
         // Marcar como sincronizado si fue exitoso
         await widget.db.markRecordAsSynced(recordId);
         print('[SYNC] Carnet guardado y sincronizado: ${data.matricula.value}');
+      } else {
+        print('[SYNC] ℹ️ Carnet guardado localmente, pendiente de sincronización');
       }
       
       if (mounted) {
-        // TEMPORAL: Siempre mostrar éxito si se guardó localmente
-        // TODO: Investigar por qué cloudOk a veces es false cuando funciona
         if (cloudOk) {
-          showOk(context, 'Carnet guardado y sincronizado');
+          showOk(context, 'Carnet guardado y sincronizado con la nube');
         } else {
-          print('[SYNC] ⚠️ ADVERTENCIA: cloudOk es false pero el carnet puede haberse guardado correctamente');
-          // Cambiar el mensaje para ser menos alarmante
-          showOk(context, 'Carnet guardado correctamente');
+          showOk(context, 'Carnet guardado localmente\n(Se sincronizará cuando haya internet)');
         }
       }
     } catch (e) {

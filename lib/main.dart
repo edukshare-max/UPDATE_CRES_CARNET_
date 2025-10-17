@@ -8,6 +8,7 @@ import 'screens/auth/login_screen.dart';
 import 'data/db.dart' as DB;
 import 'data/auth_service.dart';
 import 'services/version_service.dart';
+import 'services/auto_sync_service.dart';
 // Tema institucional UAGro
 import 'ui/app_theme.dart';
 
@@ -16,6 +17,9 @@ void main() async {
   
   // Cargar información de versión
   await VersionService().loadVersion();
+  
+  // Inicializar servicio de sincronización automática
+  AutoSyncService.instance.initialize();
   
   // Diagnóstico de API_BASE_URL solo en debug
   if (kDebugMode) {

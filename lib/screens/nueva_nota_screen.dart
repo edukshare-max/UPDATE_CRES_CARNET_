@@ -39,7 +39,7 @@ class NuevaNotaScreen extends StatefulWidget {
   State<NuevaNotaScreen> createState() => _NuevaNotaScreenState();
 }
 
-class _NuevaNotaScreenState extends State<NuevaNotaScreen> {
+class _NuevaNotaScreenState extends State<NuevaNotaScreen> with WidgetsBindingObserver {
   final _id = TextEditingController();
   final _mat = TextEditingController();
   final _depto = TextEditingController();
@@ -57,6 +57,9 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> {
 
   bool _cargando = false;
   String? _error;
+  
+  // Flag para detectar si volvemos del background
+  bool _isInBackground = false;
 
   bool _showAllCloud = false;
   bool _showAllLocal = false;
@@ -93,6 +96,9 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> {
   void initState() {
     super.initState();
     
+    // Registrar observer para detectar cambios de lifecycle
+    WidgetsBinding.instance.addObserver(this);
+    
     // 🔥 Wake up backend en background
     _wakeUpBackend();
     
@@ -100,6 +106,24 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> {
         widget.matriculaInicial!.trim().isNotEmpty) {
       _mat.text = widget.matriculaInicial!.trim();
       _buscarNotasMatricula();
+    }
+  }
+  
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    // Detectar cuando la app vuelve al foreground
+    if (state == AppLifecycleState.resumed && _isInBackground) {
+      _isInBackground = false;
+      // Refrescar si hay una matrícula cargada
+      if (_mat.text.trim().isNotEmpty) {
+        print('[REFRESH] 🔄 App volvió al foreground, refrescando notas...');
+        _buscarNotasMatricula();
+      }
+    } else if (state == AppLifecycleState.paused || 
+               state == AppLifecycleState.inactive) {
+      _isInBackground = true;
     }
   }
   
@@ -119,6 +143,10 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> {
 
   @override
   void dispose() {
+    // Remover observer antes de limpiar
+    WidgetsBinding.instance.removeObserver(this);
+    
+    // Limpiar controladores
     _id.dispose();
     _mat.dispose();
     _depto.dispose();
@@ -129,6 +157,7 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> {
     _talla.dispose();
     _cintura.dispose();
     _cadera.dispose();
+    
     super.dispose();
   }
 
@@ -1249,6 +1278,20 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> {
         'CRES Carnets', 
         'Agregar nota clínica',
         [
+          IconButton(
+            tooltip: 'Refrescar notas desde servidor',
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: () async {
+              if (_mat.text.trim().isNotEmpty) {
+                await _buscarNotasMatricula();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('✓ Notas actualizadas')),
+                  );
+                }
+              }
+            },
+          ),
           IconButton(
             tooltip: 'Ver citas',
             icon: const Icon(Icons.event_rounded, color: Colors.white),

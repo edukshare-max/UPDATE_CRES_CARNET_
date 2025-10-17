@@ -5,10 +5,13 @@ import 'package:cres_carnets_ibmcloud/screens/vaccination_screen.dart';
 import 'package:cres_carnets_ibmcloud/screens/promocion_salud_screen.dart';
 import 'package:cres_carnets_ibmcloud/screens/auth/login_screen.dart';
 import 'package:cres_carnets_ibmcloud/screens/about_screen.dart';
+import 'package:cres_carnets_ibmcloud/screens/database_cleaner_screen.dart';
+import 'package:cres_carnets_ibmcloud/screens/pending_sync_screen.dart';
 import 'package:cres_carnets_ibmcloud/ui/uagro_theme.dart';
 import 'package:cres_carnets_ibmcloud/ui/connection_indicator.dart';
 import 'package:cres_carnets_ibmcloud/data/db.dart' as DB;
 import 'package:cres_carnets_ibmcloud/data/auth_service.dart';
+import 'package:cres_carnets_ibmcloud/data/sync_service.dart';
 import 'package:cres_carnets_ibmcloud/services/version_service.dart';
 import 'package:cres_carnets_ibmcloud/services/update_manager.dart';
 
@@ -139,6 +142,116 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return hasPermission;
   }
 
+  Future<void> _handleSyncPendingData() async {
+    // Mostrar indicador de progreso
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Sincronizando datos pendientes...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final syncService = SyncService(widget.db);
+      final result = await syncService.syncAll();
+
+      // Cerrar indicador de progreso
+      if (mounted) Navigator.pop(context);
+
+      // Mostrar resultado
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(
+                  result.hasErrors ? Icons.warning : Icons.check_circle,
+                  color: result.hasErrors ? Colors.orange : Colors.green,
+                ),
+                const SizedBox(width: 8),
+                const Text('Sincronización Completada'),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (result.totalPending == 0)
+                    const Text('✅ No había datos pendientes para sincronizar')
+                  else ...[
+                    Text('📊 Total items procesados: ${result.totalPending}'),
+                    const SizedBox(height: 8),
+                    Text('✅ Sincronizados: ${result.totalSynced}', 
+                      style: const TextStyle(color: Colors.green)),
+                    if (result.totalErrors > 0)
+                      Text('❌ Con errores: ${result.totalErrors}', 
+                        style: const TextStyle(color: Colors.red)),
+                    const Divider(),
+                    if (result.recordsSynced > 0 || result.recordsErrors > 0)
+                      Text('Expedientes: ${result.recordsSynced}✓ ${result.recordsErrors}✗'),
+                    if (result.notesSynced > 0 || result.notesErrors > 0)
+                      Text('Notas: ${result.notesSynced}✓ ${result.notesErrors}✗'),
+                    if (result.citasSynced > 0 || result.citasErrors > 0)
+                      Text('Citas: ${result.citasSynced}✓ ${result.citasErrors}✗'),
+                    if (result.vacunacionesSynced > 0 || result.vacunacionesErrors > 0)
+                      Text('Vacunaciones: ${result.vacunacionesSynced}✓ ${result.vacunacionesErrors}✗'),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cerrar'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      // Cerrar indicador de progreso
+      if (mounted) Navigator.pop(context);
+
+      // Mostrar error
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.error, color: Colors.red),
+                SizedBox(width: 8),
+                Text('Error'),
+              ],
+            ),
+            content: Text('Error al sincronizar datos:\n$e'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cerrar'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _handleLogout() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -210,6 +323,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
+          IconButton(
+            icon: const Icon(Icons.cloud_sync),
+            tooltip: 'Ver y sincronizar datos pendientes',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PendingSyncScreen(db: widget.db),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.sync),
+            tooltip: 'Sincronizar datos pendientes (rápido)',
+            onPressed: _handleSyncPendingData,
+          ),
+          IconButton(
+            icon: const Icon(Icons.cleaning_services),
+            tooltip: 'Gestión de datos locales',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => DatabaseCleanerScreen(db: widget.db),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.system_update),
             tooltip: 'Buscar actualizaciones',

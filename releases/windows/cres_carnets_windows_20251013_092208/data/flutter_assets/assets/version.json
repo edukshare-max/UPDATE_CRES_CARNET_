@@ -1,0 +1,83 @@
+{
+  "version": "2.4.3",
+  "buildNumber": 3,
+  "releaseDate": "2025-10-13",
+  "channel": "stable",
+  "minimumVersion": "2.0.0",
+  "changelog": [
+    {
+      "version": "2.4.3",
+      "date": "2025-10-13",
+      "changes": [
+        "Fix CRÍTICO: Guardado y edición de carnets ahora funciona correctamente",
+        "Fix: Modo offline permite guardar carnets sin conexión",
+        "Mejora: Permisos de escritura corregidos en instalador Windows",
+        "Mejora: Base de datos se guarda en Documents (sin permisos de admin)"
+      ]
+    },
+    {
+      "version": "2.4.2",
+      "date": "2025-10-12",
+      "changes": [
+        "Fix: Permisos de red corregidos para Android",
+        "Fix: Conexión a internet funcional en dispositivos móviles",
+        "APKs optimizados por arquitectura (19-22 MB vs 60 MB)",
+        "Mejoras en permisos de almacenamiento para Android 13+"
+      ]
+    },
+    {
+      "version": "2.4.1",
+      "date": "2025-10-11",
+      "changes": [
+        "Fix: Sistema de actualización automática funcional con instalador profesional",
+        "Odontograma Profesional dual: infantil (20 dientes) y adulto (32 dientes)",
+        "5 superficies por diente con click directo",
+        "14 condiciones dentales con colores profesionales",
+        "PDF A4 horizontal optimizado y centrado",
+        "5 Tests de Psicología: Hamilton, Beck, DASS-21, Plutchik, MBI",
+        "Mejoras UX: paneles optimizados, feedback inmediato, card discreta"
+      ]
+    },
+    {
+      "version": "2.4.0",
+      "date": "2025-10-11",
+      "changes": [
+        "Odontograma Profesional dual: infantil (20 dientes) y adulto (32 dientes)",
+        "5 superficies por diente con click directo",
+        "14 condiciones dentales con colores profesionales",
+        "PDF A4 horizontal optimizado y centrado",
+        "5 Tests de Psicología: Hamilton, Beck, DASS-21, Plutchik, MBI",
+        "Mejoras UX: paneles optimizados, feedback inmediato, card discreta"
+      ]
+    },
+    {
+      "version": "2.3.2",
+      "date": "2025-10-10",
+      "changes": [
+        "Sistema de instalador profesional",
+        "88 instituciones UAGro implementadas",
+        "Autocompletado inteligente en panel admin",
+        "Sistema de autenticación completo",
+        "Modo híbrido online/offline"
+      ]
+    },
+    {
+      "version": "2.3.1",
+      "date": "2025-10-10",
+      "changes": [
+        "88 instituciones organizadas por categoría",
+        "Búsqueda fuzzy en selector de campus",
+        "Eliminado endpoint temporal de seguridad"
+      ]
+    },
+    {
+      "version": "2.0.0",
+      "date": "2025-10-09",
+      "changes": [
+        "Sistema de autenticación JWT",
+        "Modo híbrido inteligente",
+        "Sincronización automática"
+      ]
+    }
+  ]
+}

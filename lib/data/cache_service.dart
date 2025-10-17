@@ -163,4 +163,15 @@ class CacheService {
       print('⚠️ Error al limpiar caché: $e');
     }
   }
+
+  /// Invalida únicamente el caché de notas para una matrícula
+  static Future<void> invalidateNotas(String matricula) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_notasPrefix + matricula);
+      print('🗑️ Caché de notas invalidado para $matricula');
+    } catch (e) {
+      print('⚠️ Error al invalidar caché de notas: $e');
+    }
+  }
 }
