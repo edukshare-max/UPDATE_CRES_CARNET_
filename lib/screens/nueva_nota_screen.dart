@@ -60,6 +60,10 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> with WidgetsBindingOb
   
   // Flag para detectar si volvemos del background
   bool _isInBackground = false;
+  
+  // Control de guardado para prevenir duplicados
+  bool _guardandoNota = false;
+  DateTime? _ultimoGuardado;
 
   bool _showAllCloud = false;
   bool _showAllLocal = false;
@@ -477,6 +481,37 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> with WidgetsBindingOb
   // ================ GUARDAR NOTA (FASTAPI) ================
 
   Future<void> _guardarNota() async {
+    // ========== PROTECCIÓN CONTRA GUARDADOS DUPLICADOS ==========
+    // Prevenir múltiples clics mientras se está guardando
+    if (_guardandoNota) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⏳ Ya se está guardando la nota, espera...'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
+      return;
+    }
+
+    // Prevenir guardados muy seguidos (menos de 2 segundos)
+    if (_ultimoGuardado != null) {
+      final diferencia = DateTime.now().difference(_ultimoGuardado!);
+      if (diferencia.inSeconds < 2) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('⚠️ Espera un momento antes de guardar otra nota'),
+              duration: Duration(seconds: 1),
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    // ========== VALIDACIÓN DE CAMPOS OBLIGATORIOS ==========
     final m = _mat.text.trim();
     final dep = (_deptChoice == 'Otra' ? _depto.text.trim() : (_deptChoice ?? '')).trim();
     final t = _tratante.text.trim();
@@ -507,9 +542,37 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> with WidgetsBindingOb
       return;
     }
 
+    // ========== INICIAR GUARDADO ==========
+    setState(() => _guardandoNota = true);
+
+    // Mostrar indicador de progreso inmediatamente
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+              SizedBox(width: 12),
+              Text('💾 Guardando nota...'),
+            ],
+          ),
+          duration: Duration(seconds: 30), // Duración larga, se cerrará manualmente
+        ),
+      );
+    }
+
     try {
+      // ========== PASO 1: GUARDAR ADJUNTOS ==========
       final rutasAdj = await _guardarAdjuntosLocal(m);
 
+      // ========== PASO 2: CONSTRUIR CUERPO DE LA NOTA ==========
       final buffer = StringBuffer();
       if (requiereDx) buffer.writeln('Diagnóstico: $dx');
       buffer.writeln('Consulta: $tc');
@@ -537,6 +600,7 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> with WidgetsBindingOb
       }
       final cuerpoFinal = buffer.toString();
 
+      // ========== PASO 3: GUARDAR EN BASE DE DATOS LOCAL ==========
       final comp = DB.NotesCompanion.insert(
         matricula: m,
         departamento: dep.isEmpty ? 'Nota' : dep,
@@ -547,9 +611,12 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> with WidgetsBindingOb
       );
 
       final rowId = await widget.db.insertNote(comp);
-      print('Nota insertada rowId=$rowId para matrícula=$m depto=$dep');
+      print('✅ [GUARDADO LOCAL] Nota insertada rowId=$rowId para matrícula=$m depto=$dep');
 
+      // ========== PASO 4: INTENTAR SUBIR A LA NUBE ==========
       bool subioNube = false;
+      String? errorNube;
+      
       try {
         final ok = await ApiService.pushSingleNote(
           matricula: m,
@@ -558,31 +625,79 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> with WidgetsBindingOb
           tratante: t,
         );
         subioNube = ok;
+        
         if (ok) {
           // Marcar como sincronizado si fue exitoso
           await widget.db.markNoteAsSynced(rowId);
-          print('[SYNC] Nota $rowId marcada como sincronizada');
+          print('✅ [SINCRONIZACIÓN] Nota $rowId subida y marcada como sincronizada');
+        } else {
+          print('⚠️ [SINCRONIZACIÓN] Nota $rowId guardada local, respuesta false de la nube');
         }
       } catch (e) {
-        print('[SYNC] Error al sincronizar nota $rowId: $e');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('No se pudo subir a la nube: $e')),
-          );
-        }
+        errorNube = e.toString();
+        print('❌ [SINCRONIZACIÓN] Error al sincronizar nota $rowId: $e');
       }
 
+      // ========== PASO 5: CERRAR INDICADOR Y MOSTRAR RESULTADO ==========
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            subioNube
-                ? 'Nota guardada localmente y subida a la nube.'
-                : 'Nota guardada localmente. Pendiente de sincronización.',
-          ),
-        ),
-      );
+      
+      // Cerrar el SnackBar de "Guardando..."
+      ScaffoldMessenger.of(context).clearSnackBars();
 
+      // Mostrar resultado con emoji y color según el estado
+      final SnackBar resultSnackBar;
+      if (subioNube) {
+        resultSnackBar = SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  '✅ Nota guardada localmente y sincronizada con la nube',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green.shade700,
+          duration: const Duration(seconds: 3),
+        );
+      } else {
+        resultSnackBar = SnackBar(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.cloud_off, color: Colors.white),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '💾 Nota guardada localmente',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                errorNube != null 
+                  ? '⚠️ Error al subir: ${errorNube.length > 50 ? '${errorNube.substring(0, 50)}...' : errorNube}'
+                  : '⚠️ Se sincronizará automáticamente cuando haya conexión',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.orange.shade700,
+          duration: const Duration(seconds: 4),
+        );
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(resultSnackBar);
+
+      // ========== PASO 6: LIMPIAR FORMULARIO ==========
       if (_deptChoice == 'Otra') _depto.clear();
       _tratante.clear();
       _cuerpo.clear();
@@ -595,14 +710,77 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> with WidgetsBindingOb
       _cintura.clear();
       _cadera.clear();
 
+      // Registrar tiempo del último guardado
+      _ultimoGuardado = DateTime.now();
+
+      // ========== PASO 7: ACTUALIZAR UI ==========
       setState(() {});
       await _buscarNotasMatricula();
+
     } catch (e, st) {
-      print('Error al guardar nota: $e\n$st');
+      print('❌ [ERROR CRÍTICO] Error al guardar nota: $e\n$st');
+      
       if (!mounted) return;
+      
+      // Cerrar indicador de progreso
+      ScaffoldMessenger.of(context).clearSnackBars();
+      
+      // Mostrar error detallado
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al guardar nota: $e')),
+        SnackBar(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.error, color: Colors.white),
+                  SizedBox(width: 12),
+                  Text(
+                    '❌ Error al guardar nota',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                e.toString().length > 100 
+                  ? '${e.toString().substring(0, 100)}...' 
+                  : e.toString(),
+                style: const TextStyle(fontSize: 12),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'Detalles',
+            textColor: Colors.white,
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: const Text('Error detallado'),
+                  content: SingleChildScrollView(
+                    child: Text('$e\n\nStack trace:\n$st'),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Cerrar'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
       );
+    } finally {
+      // ========== SIEMPRE LIBERAR EL FLAG DE GUARDADO ==========
+      if (mounted) {
+        setState(() => _guardandoNota = false);
+      }
     }
   }
 
@@ -612,18 +790,78 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> with WidgetsBindingOb
     try {
       setState(() => _cargando = true);
       
+      // Mostrar indicador de progreso inmediato
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Text('🔄 Verificando notas pendientes...'),
+              ],
+            ),
+            duration: Duration(seconds: 30),
+          ),
+        );
+      }
+      
       final pendingNotes = await widget.db.getPendingNotes();
+      
       if (pendingNotes.isEmpty) {
         if (mounted) {
+          ScaffoldMessenger.of(context).clearSnackBars();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No hay notas pendientes de sincronizar')),
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 12),
+                  Text('✅ No hay notas pendientes de sincronizar'),
+                ],
+              ),
+              backgroundColor: Colors.green.shade700,
+              duration: const Duration(seconds: 2),
+            ),
           );
         }
         return;
       }
 
+      // Actualizar mensaje con cantidad encontrada
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text('🔄 Sincronizando ${pendingNotes.length} notas...'),
+              ],
+            ),
+            duration: const Duration(seconds: 30),
+          ),
+        );
+      }
+
       int sincronizadas = 0;
       int errores = 0;
+      final List<String> erroresDetalle = [];
 
       for (final nota in pendingNotes) {
         try {
@@ -638,36 +876,194 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> with WidgetsBindingOb
           if (ok) {
             await widget.db.markNoteAsSynced(nota.id);
             sincronizadas++;
-            print('[SYNC] Nota ${nota.id} sincronizada exitosamente');
+            print('✅ [SYNC] Nota ${nota.id} sincronizada exitosamente');
           } else {
             errores++;
-            print('[SYNC] Error al sincronizar nota ${nota.id}: respuesta false');
+            erroresDetalle.add('Nota ${nota.id}: Respuesta negativa');
+            print('⚠️ [SYNC] Error al sincronizar nota ${nota.id}: respuesta false');
           }
         } catch (e) {
-          print('Error sincronizando nota ${nota.id}: $e');
           errores++;
+          erroresDetalle.add('Nota ${nota.id}: $e');
+          print('❌ [SYNC] Error sincronizando nota ${nota.id}: $e');
         }
       }
 
       if (mounted) {
+        // Cerrar indicador de progreso
+        ScaffoldMessenger.of(context).clearSnackBars();
+        
+        // Mostrar resultado detallado
         if (errores == 0) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('✓ $sincronizadas notas sincronizadas correctamente')),
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '✅ $sincronizadas ${sincronizadas == 1 ? 'nota sincronizada' : 'notas sincronizadas'} correctamente',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.green.shade700,
+              duration: const Duration(seconds: 3),
+            ),
           );
-        } else {
+        } else if (sincronizadas > 0) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('⚠️ ${sincronizadas} sincronizadas, ${errores} con error'),
-              backgroundColor: Colors.orange,
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.warning, color: Colors.white),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          '⚠️ Sincronización parcial: $sincronizadas OK, $errores errores',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (erroresDetalle.isNotEmpty && erroresDetalle.length <= 3) ...[
+                    const SizedBox(height: 4),
+                    ...erroresDetalle.take(3).map((e) => Text(
+                      '• ${e.length > 60 ? '${e.substring(0, 60)}...' : e}',
+                      style: const TextStyle(fontSize: 11),
+                    )),
+                  ],
+                ],
+              ),
+              backgroundColor: Colors.orange.shade700,
+              duration: const Duration(seconds: 5),
+              action: erroresDetalle.length > 3 ? SnackBarAction(
+                label: 'Ver todos',
+                textColor: Colors.white,
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: Text('Errores de sincronización ($errores)'),
+                      content: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: erroresDetalle.map((e) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text('• $e', style: const TextStyle(fontSize: 12)),
+                          )).toList(),
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Cerrar'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ) : null,
+            ),
+          );
+        } else {
+          // Solo errores
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.error, color: Colors.white),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          '❌ Error: No se pudo sincronizar ninguna nota',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Verifica tu conexión a internet y el token de autenticación',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.red.shade700,
+              duration: const Duration(seconds: 5),
+              action: SnackBarAction(
+                label: 'Detalles',
+                textColor: Colors.white,
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text('Errores de sincronización'),
+                      content: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: erroresDetalle.map((e) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text('• $e', style: const TextStyle(fontSize: 12)),
+                          )).toList(),
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Cerrar'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
           );
         }
+        
         await _buscarNotasMatricula(); // Refrescar la vista
       }
-    } catch (e) {
+    } catch (e, st) {
+      print('❌ [ERROR CRÍTICO] Error al sincronizar notas pendientes: $e\n$st');
       if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al sincronizar: $e')),
+          SnackBar(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.error, color: Colors.white),
+                    SizedBox(width: 12),
+                    Text(
+                      '❌ Error al sincronizar',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  e.toString().length > 80 ? '${e.toString().substring(0, 80)}...' : e.toString(),
+                  style: const TextStyle(fontSize: 11),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 5),
+          ),
         );
       }
     } finally {
@@ -1860,13 +2256,19 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> with WidgetsBindingOb
 
                 const SizedBox(height: 12),
                 FilledButton.icon(
-                  onPressed: _guardarNota,
-                  icon: const Icon(Icons.save_outlined),
-                  label: const Text('Guardar nota'),
+                  onPressed: _guardandoNota ? null : _guardarNota,
+                  icon: _guardandoNota 
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save_outlined),
+                  label: Text(_guardandoNota ? 'Guardando...' : 'Guardar nota'),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
-                  onPressed: _cargando ? null : _sincronizarNotasPendientes,
+                  onPressed: (_cargando || _guardandoNota) ? null : _sincronizarNotasPendientes,
                   icon: const Icon(Icons.sync),
                   label: const Text('Sincronizar notas pendientes'),
                 ),
