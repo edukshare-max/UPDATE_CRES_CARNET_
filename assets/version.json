@@ -1,11 +1,22 @@
 {
-  "version": "2.4.17",
-  "buildNumber": 17,
-  "releaseDate": "2025-10-17",
+  "version": "2.4.18",
+  "buildNumber": 18,
+  "releaseDate": "2025-10-21",
   "channel": "stable",
   "minimumVersion": "2.0.0",
-  "download_url": "https://github.com/edukshare-max/UPDATE_CRES_CARNET_/raw/master/releases/installers/CRES_Carnets_Setup_v2.4.17.exe",
+  "download_url": "https://github.com/edukshare-max/UPDATE_CRES_CARNET_/raw/master/releases/installers/CRES_Carnets_Setup_v2.4.18.exe",
   "changelog": [
+    {
+      "version": "2.4.18",
+      "date": "2025-10-21",
+      "changes": [
+        "🚀 Sistema mejorado de guardado de notas",
+        "🛡️ Protección contra guardados duplicados",
+        "💬 Feedback visual claro: verde (nube), naranja (local), rojo (error)",
+        "🔄 Botón inteligente con spinner durante guardado",
+        "📊 Sincronización con detalles de errores por nota"
+      ]
+    },
     {
       "version": "2.4.13",
       "date": "2025-10-16",
