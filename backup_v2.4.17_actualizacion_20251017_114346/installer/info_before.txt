@@ -1,0 +1,55 @@
+====================================================================
+CRES CARNETS - Sistema de Carnets de Salud Digital
+Universidad Autónoma de Guerrero
+====================================================================
+
+Versión: 2.3.2
+Fecha: Octubre 2025
+
+DESCRIPCIÓN:
+-----------
+Sistema integral para la gestión de carnets de salud estudiantil
+en los Centros Regionales de Educación Superior (CRES) de la UAGro.
+
+CARACTERÍSTICAS:
+---------------
+✓ Gestión de carnets digitales
+✓ Registro de consultas médicas
+✓ Notas de atención médica
+✓ Promoción de salud
+✓ Modo offline/online híbrido
+✓ Sincronización automática con la nube
+✓ Sistema de autenticación por campus
+
+REQUISITOS DEL SISTEMA:
+----------------------
+- Windows 10 o superior (64-bit)
+- 4 GB de RAM mínimo (8 GB recomendado)
+- 500 MB de espacio en disco
+- Conexión a internet (recomendada, no obligatoria)
+- Resolución de pantalla: 1280x720 o superior
+
+INSTITUCIONES SOPORTADAS:
+------------------------
+- 6 CRES (Centros Regionales)
+- 4 Clínicas Universitarias
+- 20 Facultades
+- 50 Escuelas Preparatorias
+- Rectoría y Coordinaciones
+
+SOPORTE TÉCNICO:
+---------------
+Para soporte técnico, comuníquese con:
+- Dirección de Innovación en Salud UAGro
+- Email: innova.salud@uagro.mx
+
+NOTAS IMPORTANTES:
+-----------------
+• Al instalar, se creará un acceso directo en el escritorio
+• La aplicación se conectará automáticamente al backend en la nube
+• Los datos se sincronizan automáticamente cuando hay internet
+• En modo offline, los datos se guardan localmente
+
+====================================================================
+Presione "Siguiente" para continuar con la instalación
+====================================================================

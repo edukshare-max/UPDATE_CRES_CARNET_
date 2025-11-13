@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -81,6 +82,9 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> with WidgetsBindingOb
   List<Map<String, dynamic>> _citasCloud = [];
   bool _cargandoCitas = false;
   String? _errorCitas;
+  
+  // ⚡ Timer para debouncing de búsqueda
+  Timer? _debounceTimer;
 
   // Alias mínimo para compatibilidad con código legado
   // Prioriza expediente local sobre nube para consistencia con lógica existente
@@ -149,6 +153,9 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> with WidgetsBindingOb
   void dispose() {
     // Remover observer antes de limpiar
     WidgetsBinding.instance.removeObserver(this);
+    
+    // Limpiar timer de debouncing
+    _debounceTimer?.cancel();
     
     // Limpiar controladores
     _id.dispose();
@@ -221,6 +228,16 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> with WidgetsBindingOb
     }
   }
 
+  // ⚡ Función de debouncing para búsqueda (evita llamadas excesivas)
+  void _onMatriculaChanged(String value) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (value.trim().isNotEmpty) {
+        _buscarNotasMatricula();
+      }
+    });
+  }
+
   Future<void> _buscarNotasMatricula() async {
     final m = _mat.text.trim();
     if (m.isEmpty) {
@@ -240,31 +257,40 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> with WidgetsBindingOb
     });
 
     try {
-      List<Map<String, dynamic>> notasNube = const [];
-      try {
-        notasNube = await ApiService.getNotasForMatricula(m);
-      } catch (e) {
-        _error = (_error == null) ? 'Nube (notas): $e' : '${_error!}\nNube (notas): $e';
-      }
+      // 🚀 OPTIMIZACIÓN: Ejecutar llamadas en paralelo con Future.wait
+      final results = await Future.wait([
+        // Llamada a la API (nube)
+        ApiService.getNotasForMatricula(m).catchError((e) {
+          _error = 'Nube (notas): $e';
+          return <Map<String, dynamic>>[];
+        }),
+        // Query expediente local
+        (() async {
+          final qExp = widget.db.select(widget.db.healthRecords)
+            ..where((t) => t.matricula.equals(m))
+            ..orderBy([
+              (t) => OrderingTerm(expression: t.timestamp, mode: OrderingMode.desc),
+            ])
+            ..limit(1);
+          final expList = await qExp.get();
+          return expList.isNotEmpty ? expList.first : null;
+        })(),
+        // Query notas locales
+        (() async {
+          final qNotas = widget.db.select(widget.db.notes)
+            ..where((t) => t.matricula.equals(m))
+            ..orderBy([
+              (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc),
+            ]);
+          return await qNotas.get();
+        })(),
+      ]);
 
-      DB.HealthRecord? expLocal;
-      List<DB.Note> notasLocal = const [];
-      final qExp = widget.db.select(widget.db.healthRecords)
-        ..where((t) => t.matricula.equals(m))
-        ..orderBy([
-          (t) => OrderingTerm(expression: t.timestamp, mode: OrderingMode.desc),
-        ])
-        ..limit(1);
-      final expList = await qExp.get();
-      if (expList.isNotEmpty) expLocal = expList.first;
+      final notasNube = results[0] as List<Map<String, dynamic>>;
+      final expLocal = results[1] as DB.HealthRecord?;
+      final notasLocal = results[2] as List<DB.Note>;
 
-      final qNotas = widget.db.select(widget.db.notes)
-        ..where((t) => t.matricula.equals(m))
-        ..orderBy([
-          (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc),
-        ]);
-      notasLocal = await qNotas.get();
-
+      // Calcular atención integral
       final servicios = <String>{};
       for (final n in notasNube) {
         final d = (n['departamento'] ?? '').toString().trim();
@@ -276,19 +302,21 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> with WidgetsBindingOb
       }
       final integral = servicios.length >= 2;
 
+      // 🎯 OPTIMIZACIÓN: Una sola llamada a setState con todos los datos
       if (!mounted) return;
       setState(() {
         _notasCloud = notasNube;
         _expedienteLocal = expLocal;
         _notasLocal = notasLocal;
         _atencionIntegral = integral;
+        _cargando = false;
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = '$e');
-    } finally {
-      if (!mounted) return;
-      setState(() => _cargando = false);
+      setState(() {
+        _error = '$e';
+        _cargando = false;
+      });
     }
   }
 
@@ -1789,6 +1817,7 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> with WidgetsBindingOb
                         child: TextField(
                           controller: _mat,
                           decoration: const InputDecoration(labelText: 'Matrícula'),
+                          onChanged: _onMatriculaChanged,
                           onSubmitted: (_) => _buscarNotasMatricula(),
                         ),
                       ),

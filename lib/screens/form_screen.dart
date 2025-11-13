@@ -2,6 +2,7 @@
 import 'package:drift/drift.dart' show Value, OrderingTerm, OrderingMode;
 import '../data/db.dart';
 import '../data/sync_service.dart';
+import '../data/cache_service.dart'; // Para invalidar caché después de guardar
 // QUITA: import '../data/cloudant_query.dart';
 import 'nueva_nota_screen.dart';
 import 'package:cres_carnets_ibmcloud/ui/uagro_widgets.dart' hide SectionCard;
@@ -445,6 +446,8 @@ class _FormScreenState extends State<FormScreen> {
       if (cloudOk) {
         // Marcar como sincronizado si fue exitoso
         await widget.db.markRecordAsSynced(recordId);
+        // 🚀 Invalidar caché para que próxima búsqueda obtenga datos frescos
+        await CacheService.invalidateCarnet(data.matricula.value);
         print('[SYNC] Carnet guardado y sincronizado: ${data.matricula.value}');
       } else {
         print('[SYNC] ℹ️ Carnet guardado localmente, pendiente de sincronización');

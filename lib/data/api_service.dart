@@ -351,81 +351,69 @@ static Future<Map<String, dynamic>?> getExpedienteByMatricula(String matricula) 
       return cached;
     }
     
-    // DRY-RUN: Intento A → GET /carnet/{matricula}
+    // 🚀 OPTIMIZACIÓN: Intentar ambas URLs en paralelo usando Future.any
+    // Devuelve la primera respuesta exitosa, cancelando la otra
     final urlA = Uri.parse('$baseUrl/carnet/$matricula');
-    print('[DRY-RUN] Intento A (matrícula): $urlA');
-    final respA = await http.get(urlA).timeout(_normalTimeout);
-    print('[DRY-RUN] Status A: ${respA.statusCode}');
-    print('[DRY-RUN] Body A: ${respA.body}');
+    final urlB = matricula.startsWith('carnet:') 
+        ? null 
+        : Uri.parse('$baseUrl/carnet/carnet:$matricula');
     
-    if (respA.statusCode == 200) {
-      final data = jsonDecode(respA.body);
-      if (data != null && data is Map && data.isNotEmpty) {
-        final normalized = _normalizeCarnetData(Map<String, dynamic>.from(data));
-        print('[DRY-RUN] Llaves nivel 1: ${normalized.keys.toList()}');
-        print('[DRY-RUN] ID encontrado: ${normalized['id']}');
-        _logDataTypes(normalized);
-        
-        // 💾 Guardar en caché
-        await CacheService.saveCarnet(matricula, normalized);
-        
-        return normalized;
-      }
-      // Si es una lista, filtrar carnets y tomar el más reciente
-      if (data is List && data.isNotEmpty) {
-        final carnets = data.where((item) => 
-          item is Map && 
-          item['id'] != null && 
-          item['id'].toString().startsWith('carnet:') &&
-          !item.containsKey('inicio') && // excluir citas
-          !item.containsKey('fin')
-        ).toList();
-        
-        if (carnets.isNotEmpty) {
-          // Tomar el más reciente por _ts
-          carnets.sort((a, b) {
-            final tsA = a['_ts'] ?? 0;
-            final tsB = b['_ts'] ?? 0;
-            return tsB.compareTo(tsA);
-          });
-          final normalized = _normalizeCarnetData(Map<String, dynamic>.from(carnets.first));
-          print('[DRY-RUN] Carnet filtrado - Llaves nivel 1: ${normalized.keys.toList()}');
-          print('[DRY-RUN] ID encontrado: ${normalized['id']}');
-          _logDataTypes(normalized);
+    print('[PARALELO] Intentando: $urlA ${urlB != null ? "y $urlB" : ""}');
+    
+    // Crear lista de futures (solo agregar urlB si existe)
+    final futures = <Future<http.Response>>[
+      http.get(urlA).timeout(_normalTimeout),
+      if (urlB != null) http.get(urlB).timeout(_normalTimeout),
+    ];
+    
+    // Procesar respuestas conforme lleguen
+    http.Response? successResponse;
+    for (final future in futures) {
+      try {
+        final resp = await future;
+        if (resp.statusCode == 200) {
+          final data = jsonDecode(resp.body);
           
-          // 💾 Guardar en caché
-          await CacheService.saveCarnet(matricula, normalized);
+          // Procesar Map directo
+          if (data != null && data is Map && data.isNotEmpty) {
+            final normalized = _normalizeCarnetData(Map<String, dynamic>.from(data));
+            if (normalized['id'] != null) {
+              print('[PARALELO] ✅ Carnet encontrado - ID: ${normalized['id']}');
+              await CacheService.saveCarnet(matricula, normalized);
+              return normalized;
+            }
+          }
           
-          return normalized;
+          // Procesar lista de carnets
+          if (data is List && data.isNotEmpty) {
+            final carnets = data.where((item) => 
+              item is Map && 
+              item['id'] != null && 
+              item['id'].toString().startsWith('carnet:') &&
+              !item.containsKey('inicio') && 
+              !item.containsKey('fin')
+            ).toList();
+            
+            if (carnets.isNotEmpty) {
+              carnets.sort((a, b) {
+                final tsA = a['_ts'] ?? 0;
+                final tsB = b['_ts'] ?? 0;
+                return tsB.compareTo(tsA);
+              });
+              final normalized = _normalizeCarnetData(Map<String, dynamic>.from(carnets.first));
+              print('[PARALELO] ✅ Carnet filtrado - ID: ${normalized['id']}');
+              await CacheService.saveCarnet(matricula, normalized);
+              return normalized;
+            }
+          }
         }
+      } catch (e) {
+        print('[PARALELO] ⚠️ Request falló: $e');
+        continue; // Intentar siguiente URL
       }
     }
     
-    // DRY-RUN: Intento B → GET /carnet/carnet:{matricula} (si matricula no empieza con carnet:)
-    if (!matricula.startsWith('carnet:')) {
-      final urlB = Uri.parse('$baseUrl/carnet/carnet:$matricula');
-      print('[DRY-RUN] Intento B (matrícula): $urlB');
-      final respB = await http.get(urlB).timeout(_normalTimeout);
-      print('[DRY-RUN] Status B: ${respB.statusCode}');
-      print('[DRY-RUN] Body B: ${respB.body}');
-      
-      if (respB.statusCode == 200) {
-        final data = jsonDecode(respB.body);
-        if (data != null && data is Map && data.isNotEmpty) {
-          final normalized = _normalizeCarnetData(Map<String, dynamic>.from(data));
-          print('[DRY-RUN] Llaves nivel 1: ${normalized.keys.toList()}');
-          print('[DRY-RUN] ID encontrado: ${normalized['id']}');
-          _logDataTypes(normalized);
-          
-          // 💾 Guardar en caché
-          await CacheService.saveCarnet(matricula, normalized);
-          
-          return normalized;
-        }
-      }
-    }
-    
-    print('[DRY-RUN] No se encontró carnet válido para matrícula');
+    print('[PARALELO] ❌ No se encontró carnet válido para matrícula');
     return null;
   } catch (e) {
     print('Error en getExpedienteByMatricula: $e');
