@@ -15,7 +15,13 @@ class UpdateDownloader {
   final Dio _dio;
   CancelToken? _cancelToken;
 
-  UpdateDownloader() : _dio = Dio();
+  UpdateDownloader() : _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(minutes: 2),  // Tiempo para conectar
+      receiveTimeout: const Duration(minutes: 15), // Tiempo para recibir datos
+      sendTimeout: const Duration(minutes: 2),     // Tiempo para enviar
+    ),
+  );
 
   /// Descarga el instalador de actualización
   /// 
@@ -57,7 +63,8 @@ class UpdateDownloader {
           headers: {
             'Accept': 'application/octet-stream',
           },
-          receiveTimeout: const Duration(minutes: 10),
+          receiveTimeout: const Duration(minutes: 15),  // Timeout generoso para archivos grandes
+          sendTimeout: const Duration(minutes: 2),
         ),
       );
 
