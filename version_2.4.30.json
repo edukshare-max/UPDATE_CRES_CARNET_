@@ -1,0 +1,17 @@
+﻿{
+    "build_number":  30,
+    "platform":  "windows",
+    "version":  "2.4.30",
+    "release_date":  "2025-11-24",
+    "file_size":  16637555,
+    "is_mandatory":  false,
+    "download_url":  "https://github.com/edukshare-max/UPDATE_CRES_CARNET_/releases/download/v2.4.30/CRES_Carnets_Windows_v2.4.30.zip",
+    "changelog":  [
+                      "Nueva funcion: Busqueda de carnets por nombre",
+                      "Deteccion automatica: numeros=matricula, texto=nombre",
+                      "Busqueda en base de datos local y nube",
+                      "Optimizacion movil: BrandSidebar oculto",
+                      "Mejoras de UI en formularios"
+                  ],
+    "checksum":  "CF592DA31C65CE4224561A61CE1188C458A691BD868DCCF1634FA1445C35B3AB"
+}

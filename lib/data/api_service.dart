@@ -11,11 +11,25 @@ class ApiService {
   /// Timeout para requests normales (aumentado para cold start)
   static const Duration _normalTimeout = Duration(seconds: 60);
   
+  /// Timeout para verificación rápida de conexión (no bloquear guardado)
+  static const Duration _quickCheckTimeout = Duration(seconds: 3);
+  
   /// Timeout para health check (wake-up)
   static const Duration _healthTimeout = Duration(seconds: 15);
   
   /// Flag para saber si el backend está caliente
   static bool _isBackendWarm = false;
+  
+  /// Verificación rápida de conectividad (para no bloquear guardado)
+  static Future<bool> hasInternetConnection() async {
+    try {
+      final url = Uri.parse('$baseUrl/health');
+      final resp = await http.get(url).timeout(_quickCheckTimeout);
+      return resp.statusCode == 200;
+    } catch (e) {
+      return false; // Sin internet o backend no responde
+    }
+  }
   
   /// Wake up del backend con health check
   static Future<bool> wakeUpBackend() async {
@@ -417,6 +431,45 @@ static Future<Map<String, dynamic>?> getExpedienteByMatricula(String matricula) 
     return null;
   } catch (e) {
     print('Error en getExpedienteByMatricula: $e');
+    return null;
+  }
+}
+
+// Buscar expediente por nombre (búsqueda parcial)
+static Future<Map<String, dynamic>?> searchExpedienteByName(String nombre) async {
+  try {
+    print('[BUSCAR-NOMBRE] Buscando: $nombre');
+    
+    // Endpoint de búsqueda por nombre en el backend
+    final url = Uri.parse('$baseUrl/carnet/search').replace(
+      queryParameters: {'nombre': nombre},
+    );
+    
+    print('[BUSCAR-NOMBRE] URL: $url');
+    final resp = await http.get(url).timeout(_normalTimeout);
+    
+    if (resp.statusCode == 200) {
+      final data = jsonDecode(resp.body);
+      
+      // Si devuelve una lista, tomar el primer resultado
+      if (data is List && data.isNotEmpty) {
+        final normalized = _normalizeCarnetData(Map<String, dynamic>.from(data.first));
+        print('[BUSCAR-NOMBRE] ✅ Encontrado: ${normalized['nombreCompleto']} - ${normalized['matricula']}');
+        return normalized;
+      }
+      
+      // Si devuelve un objeto directo
+      if (data is Map && data.isNotEmpty) {
+        final normalized = _normalizeCarnetData(Map<String, dynamic>.from(data));
+        print('[BUSCAR-NOMBRE] ✅ Encontrado: ${normalized['nombreCompleto']} - ${normalized['matricula']}');
+        return normalized;
+      }
+    }
+    
+    print('[BUSCAR-NOMBRE] ❌ No se encontró expediente');
+    return null;
+  } catch (e) {
+    print('Error en searchExpedienteByName: $e');
     return null;
   }
 }

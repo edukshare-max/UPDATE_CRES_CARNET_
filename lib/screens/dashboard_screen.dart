@@ -9,6 +9,7 @@ import 'package:cres_carnets_ibmcloud/screens/database_cleaner_screen.dart';
 import 'package:cres_carnets_ibmcloud/screens/pending_sync_screen.dart';
 import 'package:cres_carnets_ibmcloud/ui/uagro_theme.dart';
 import 'package:cres_carnets_ibmcloud/ui/connection_indicator.dart';
+import 'package:cres_carnets_ibmcloud/ui/mobile_adaptive.dart'; // Para detectar móvil
 import 'package:cres_carnets_ibmcloud/data/db.dart' as DB;
 import 'package:cres_carnets_ibmcloud/data/auth_service.dart';
 import 'package:cres_carnets_ibmcloud/data/sync_service.dart';
@@ -108,6 +109,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _canViewVacunacion = canVacunacion;
       });
     }
+  }
+
+  /// Obtener string de versión actual
+  Future<String> _getVersionString() async {
+    try {
+      final versionService = VersionService();
+      if (!versionService.isLoaded) {
+        await versionService.loadVersion();
+      }
+      final info = versionService.versionInfo;
+      if (info != null) {
+        return '${info.version} (${info.buildNumber})';
+      }
+    } catch (e) {
+      debugPrint('Error al obtener versión: $e');
+    }
+    return '2.4.33';
   }
 
   /// Verificar permiso antes de navegar
@@ -286,99 +304,217 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: UAGroColors.grisClaro,
-      appBar: AppBar(
-        title: _loadingUser
-            ? const Text('CRES Carnets - UAGro')
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'CRES Carnets - UAGro',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                  if (_currentUser != null)
-                    Text(
-                      '${AuthService.formatRoleName(_currentUser!.rol)} - ${AuthService.formatCampusName(_currentUser!.campus)}',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
-                    ),
-                ],
-              ),
-        backgroundColor: UAGroColors.azulMarino,
-        elevation: 0,
-        centerTitle: false,
-        actions: [
-          const ConnectionBadge(),
-          if (_currentUser != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 8.0),
-              child: Center(
-                child: Text(
-                  _currentUser!.nombreCompleto,
-                  style: const TextStyle(fontSize: 14),
-                ),
-              ),
-            ),
-          IconButton(
-            icon: const Icon(Icons.cloud_sync),
-            tooltip: 'Ver y sincronizar datos pendientes',
-            onPressed: () {
+  /// Acciones compactas para móvil (solo iconos esenciales + menú)
+  List<Widget> _buildMobileActions(BuildContext context) {
+    return [
+      const ConnectionBadge(),
+      // Solo sync rápido y menú desplegable en móvil
+      IconButton(
+        icon: const Icon(Icons.sync),
+        tooltip: 'Sincronizar',
+        iconSize: 20, // Icono más pequeño
+        onPressed: _handleSyncPendingData,
+      ),
+      PopupMenuButton<String>(
+        icon: const Icon(Icons.more_vert, size: 20),
+        onSelected: (value) {
+          switch (value) {
+            case 'pending':
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => PendingSyncScreen(db: widget.db),
                 ),
               );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.sync),
-            tooltip: 'Sincronizar datos pendientes (rápido)',
-            onPressed: _handleSyncPendingData,
-          ),
-          IconButton(
-            icon: const Icon(Icons.cleaning_services),
-            tooltip: 'Gestión de datos locales',
-            onPressed: () {
+              break;
+            case 'clean':
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => DatabaseCleanerScreen(db: widget.db),
                 ),
               );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.system_update),
-            tooltip: 'Buscar actualizaciones',
-            onPressed: () {
+              break;
+            case 'update':
               if (_updateManager != null) {
                 _updateManager!.checkForUpdatesManual(context);
               }
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            tooltip: 'Acerca de',
-            onPressed: () {
+              break;
+            case 'about':
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => AboutScreen(db: widget.db),
                 ),
               );
-            },
+              break;
+            case 'logout':
+              _handleLogout();
+              break;
+          }
+        },
+        itemBuilder: (context) => [
+          const PopupMenuItem(
+            value: 'pending',
+            child: Row(
+              children: [
+                Icon(Icons.cloud_sync, size: 18),
+                SizedBox(width: 8),
+                Text('Datos pendientes', style: TextStyle(fontSize: 13)),
+              ],
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Cerrar Sesión',
-            onPressed: _handleLogout,
+          const PopupMenuItem(
+            value: 'clean',
+            child: Row(
+              children: [
+                Icon(Icons.cleaning_services, size: 18),
+                SizedBox(width: 8),
+                Text('Gestión datos', style: TextStyle(fontSize: 13)),
+              ],
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'update',
+            child: Row(
+              children: [
+                Icon(Icons.system_update, size: 18),
+                SizedBox(width: 8),
+                Text('Actualizaciones', style: TextStyle(fontSize: 13)),
+              ],
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'about',
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, size: 18),
+                SizedBox(width: 8),
+                Text('Acerca de', style: TextStyle(fontSize: 13)),
+              ],
+            ),
+          ),
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            value: 'logout',
+            child: Row(
+              children: [
+                Icon(Icons.logout, size: 18, color: Colors.red),
+                SizedBox(width: 8),
+                Text('Cerrar sesión', style: TextStyle(fontSize: 13, color: Colors.red)),
+              ],
+            ),
           ),
         ],
+      ),
+    ];
+  }
+
+  /// Acciones completas para desktop (todos los iconos visibles)
+  List<Widget> _buildDesktopActions(BuildContext context) {
+    return [
+      const ConnectionBadge(),
+      if (_currentUser != null)
+        Padding(
+          padding: const EdgeInsets.only(right: 8.0),
+          child: Center(
+            child: Text(
+              _currentUser!.nombreCompleto,
+              style: const TextStyle(fontSize: 14),
+            ),
+          ),
+        ),
+      IconButton(
+        icon: const Icon(Icons.cloud_sync),
+        tooltip: 'Ver y sincronizar datos pendientes',
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PendingSyncScreen(db: widget.db),
+            ),
+          );
+        },
+      ),
+      IconButton(
+        icon: const Icon(Icons.sync),
+        tooltip: 'Sincronizar datos pendientes (rápido)',
+        onPressed: _handleSyncPendingData,
+      ),
+      IconButton(
+        icon: const Icon(Icons.cleaning_services),
+        tooltip: 'Gestión de datos locales',
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DatabaseCleanerScreen(db: widget.db),
+            ),
+          );
+        },
+      ),
+      IconButton(
+        icon: const Icon(Icons.system_update),
+        tooltip: 'Buscar actualizaciones',
+        onPressed: () {
+          if (_updateManager != null) {
+            _updateManager!.checkForUpdatesManual(context);
+          }
+        },
+      ),
+      IconButton(
+        icon: const Icon(Icons.info_outline),
+        tooltip: 'Acerca de',
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AboutScreen(db: widget.db),
+            ),
+          );
+        },
+      ),
+      IconButton(
+        icon: const Icon(Icons.logout),
+        tooltip: 'Cerrar Sesión',
+        onPressed: _handleLogout,
+      ),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Detectar si es móvil para AppBar compacto
+    final isMobile = MobileAdaptive.isMobilePlatform && MobileAdaptive.isPhone(context);
+    
+    return Scaffold(
+      backgroundColor: UAGroColors.grisClaro,
+      appBar: AppBar(
+        title: _loadingUser
+            ? Text(isMobile ? 'CRES' : 'CRES Carnets - UAGro')
+            : isMobile
+                ? const Text('CRES') // Solo nombre corto en móvil
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'CRES Carnets - UAGro',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                      if (_currentUser != null)
+                        Text(
+                          '${AuthService.formatRoleName(_currentUser!.rol)} - ${AuthService.formatCampusName(_currentUser!.campus)}',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+                        ),
+                    ],
+                  ),
+        backgroundColor: UAGroColors.azulMarino,
+        elevation: 0,
+        centerTitle: false,
+        actions: isMobile
+            ? _buildMobileActions(context) // Acciones compactas para móvil
+            : _buildDesktopActions(context), // Todas las acciones para desktop
       ),
       body: Container(
         decoration: BoxDecoration(
@@ -452,6 +588,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             fontSize: 14,
                             color: Colors.grey[600],
                           ),
+                        ),
+                        const SizedBox(height: 8),
+                        // Versión instalada
+                        FutureBuilder<String>(
+                          future: _getVersionString(),
+                          builder: (context, snapshot) {
+                            if (snapshot.hasData) {
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: UAGroColors.azulMarino.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  'v${snapshot.data}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: UAGroColors.azulMarino,
+                                  ),
+                                ),
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          },
                         ),
                       ],
                     ),

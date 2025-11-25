@@ -1,33 +1,97 @@
 ﻿import 'package:flutter/material.dart';
 import '../data/db.dart';
 import 'package:cres_carnets_ibmcloud/ui/uagro_widgets.dart';
+import '../ui/responsive.dart';
 
-class ListScreen extends StatelessWidget {
+class ListScreen extends StatefulWidget {
   final AppDatabase db;
   const ListScreen({super.key, required this.db});
 
   @override
+  State<ListScreen> createState() => _ListScreenState();
+}
+
+class _ListScreenState extends State<ListScreen> {
+  final _searchController = TextEditingController();
+  String _searchText = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<HealthRecord> _filterRecords(List<HealthRecord> records) {
+    if (_searchText.isEmpty) return records;
+
+    final searchLower = _searchText.toLowerCase();
+    return records.where((r) {
+      final matriculaMatch = (r.matricula ?? '').toLowerCase().contains(searchLower);
+      final nombreMatch = (r.nombreCompleto ?? '').toLowerCase().contains(searchLower);
+      return matriculaMatch || nombreMatch;
+    }).toList();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final mobile = isMobile(context);
+    
     return Scaffold(
       appBar: uagroAppBar('CRES Carnets', 'Listado de expedientes', null, context, widget.db),
       body: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        padding: EdgeInsets.fromLTRB(mobile ? 8 : 16, mobile ? 8 : 16, mobile ? 8 : 16, mobile ? 16 : 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const BrandHeader(
-              title: 'CRES Carnets',
-              subtitle: 'Expediente de salud universitario',
+            // Ocultar BrandHeader en móvil para ahorrar espacio
+            if (!mobile)
+              const BrandHeader(
+                title: 'CRES Carnets',
+                subtitle: 'Expediente de salud universitario',
+              ),
+            if (!mobile) const SizedBox(height: 16),
+            
+            // Campo de búsqueda
+            Padding(
+              padding: EdgeInsets.only(bottom: mobile ? 8 : 12),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  labelText: 'Buscar por matrícula o nombre',
+                  hintText: 'Ej: 2021001 o Juan Pérez',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _searchText.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            setState(() {
+                              _searchController.clear();
+                              _searchText = '';
+                            });
+                          },
+                        )
+                      : null,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    _searchText = value;
+                  });
+                },
+              ),
             ),
-            const SizedBox(height: 16),
+            
             Expanded(
               child: SectionCard(
                 icon: Icons.list_alt_outlined,
                 title: 'Expedientes',
                 child: StreamBuilder<List<HealthRecord>>(
-                  stream: db.select(db.healthRecords).watch(),
+                  stream: widget.db.select(widget.db.healthRecords).watch(),
                   builder: (context, snap) {
-                    final data = snap.data ?? [];
+                    final allData = snap.data ?? [];
+                    final data = _filterRecords(allData);
 
                     if (snap.connectionState == ConnectionState.waiting) {
                       return const Padding(

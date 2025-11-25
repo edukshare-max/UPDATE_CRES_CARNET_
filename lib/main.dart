@@ -11,6 +11,8 @@ import 'services/version_service.dart';
 import 'services/auto_sync_service.dart';
 // Tema institucional UAGro
 import 'ui/app_theme.dart';
+import 'ui/app_theme_mobile.dart'; // Tema adaptable para móvil
+import 'ui/mobile_adaptive.dart'; // Detección de plataforma
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +27,7 @@ void main() async {
   if (kDebugMode) {
     const String apiBase = String.fromEnvironment('API_BASE_URL', defaultValue: 'https://fastapi-backend-o7ks.onrender.com');
     print('API_BASE_URL=' + apiBase);
+    print('Platform: ${MobileAdaptive.isMobilePlatform ? "Mobile (Android/iOS)" : "Desktop (Windows/Linux/Mac)"}');
   }
   
   final db = DB.AppDatabase(); // Instancia de la base local (Drift)
@@ -41,7 +44,24 @@ class MyApp extends StatelessWidget {
       title: 'CENTRO REGIONAL DE EDUCACION SUPERIOR LLANO LARGO',
       debugShowCheckedModeBanner: false,
       // Aplicamos el tema institucional UAGro
+      // En móvil (Android/iOS) se aplicará automáticamente el tema adaptable
       theme: AppTheme.light,
+      
+      // Builder para aplicar adaptación móvil al tema
+      builder: (context, child) {
+        if (child == null) return const SizedBox.shrink();
+        
+        // Si es móvil, aplicar tema adaptado
+        if (MobileAdaptive.isMobilePlatform) {
+          return Theme(
+            data: AppThemeMobile.adaptiveTheme(context, baseTheme: AppTheme.light),
+            child: child,
+          );
+        }
+        
+        // En desktop, usar tema original sin cambios
+        return child;
+      },
 
       // 🔐 DOBLE AUTENTICACIÓN:
       // 1. Primero verificamos login con backend (LoginScreen o Dashboard)

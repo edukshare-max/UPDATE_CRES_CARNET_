@@ -28,6 +28,7 @@ import '../ui/app_theme.dart';
 import '../ui/uagro_theme.dart' as theme;
 import '../ui/widgets/brand_sidebar.dart';
 import '../ui/widgets/section_card.dart';
+import '../ui/responsive.dart';
 
 const String kSupervisorKey = 'UAGROcres2025';
 
@@ -239,14 +240,14 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> with WidgetsBindingOb
   }
 
   Future<void> _buscarNotasMatricula() async {
-    final m = _mat.text.trim();
-    if (m.isEmpty) {
+    final searchText = _mat.text.trim();
+    if (searchText.isEmpty) {
       setState(() {
         _notasCloud = const [];
         _expedienteLocal = null;
         _notasLocal = const [];
         _atencionIntegral = false;
-        _error = 'Escribe una matrícula para buscar notas.';
+        _error = 'Escribe una matrícula o nombre para buscar.';
       });
       return;
     }
@@ -257,32 +258,76 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> with WidgetsBindingOb
     });
 
     try {
+      // Detectar si es búsqueda por matrícula (numérico) o nombre (texto)
+      final esMatricula = RegExp(r'^\d+$').hasMatch(searchText);
+      
       // 🚀 OPTIMIZACIÓN: Ejecutar llamadas en paralelo con Future.wait
       final results = await Future.wait([
-        // Llamada a la API (nube)
-        ApiService.getNotasForMatricula(m).catchError((e) {
-          _error = 'Nube (notas): $e';
-          return <Map<String, dynamic>>[];
-        }),
-        // Query expediente local
+        // Llamada a la API (nube) - solo para matrícula
         (() async {
-          final qExp = widget.db.select(widget.db.healthRecords)
-            ..where((t) => t.matricula.equals(m))
-            ..orderBy([
-              (t) => OrderingTerm(expression: t.timestamp, mode: OrderingMode.desc),
-            ])
-            ..limit(1);
-          final expList = await qExp.get();
-          return expList.isNotEmpty ? expList.first : null;
+          if (esMatricula) {
+            return ApiService.getNotasForMatricula(searchText).catchError((e) {
+              _error = 'Nube (notas): $e';
+              return <Map<String, dynamic>>[];
+            });
+          } else {
+            // Búsqueda por nombre: solo local (nube requiere matrícula)
+            return <Map<String, dynamic>>[];
+          }
         })(),
-        // Query notas locales
+        // Query expediente local - buscar por matrícula o nombre
         (() async {
-          final qNotas = widget.db.select(widget.db.notes)
-            ..where((t) => t.matricula.equals(m))
-            ..orderBy([
-              (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc),
-            ]);
-          return await qNotas.get();
+          if (esMatricula) {
+            final qExp = widget.db.select(widget.db.healthRecords)
+              ..where((t) => t.matricula.equals(searchText))
+              ..orderBy([
+                (t) => OrderingTerm(expression: t.timestamp, mode: OrderingMode.desc),
+              ])
+              ..limit(1);
+            final expList = await qExp.get();
+            return expList.isNotEmpty ? expList.first : null;
+          } else {
+            // Buscar por nombre - obtener todos y filtrar en memoria
+            final qExp = widget.db.select(widget.db.healthRecords)
+              ..orderBy([
+                (t) => OrderingTerm(expression: t.timestamp, mode: OrderingMode.desc),
+              ]);
+            final allExp = await qExp.get();
+            final searchLower = searchText.toLowerCase();
+            final matched = allExp.where((exp) => 
+              exp.nombreCompleto.toLowerCase().contains(searchLower)
+            ).toList();
+            return matched.isNotEmpty ? matched.first : null;
+          }
+        })(),
+        // Query notas locales - buscar por matrícula del expediente encontrado
+        (() async {
+          if (esMatricula) {
+            final qNotas = widget.db.select(widget.db.notes)
+              ..where((t) => t.matricula.equals(searchText))
+              ..orderBy([
+                (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc),
+              ]);
+            return await qNotas.get();
+          } else {
+            // Primero buscar expediente por nombre - obtener todos y filtrar
+            final qExp = widget.db.select(widget.db.healthRecords).get();
+            final allExp = await qExp;
+            final searchLower = searchText.toLowerCase();
+            final matched = allExp.where((exp) => 
+              exp.nombreCompleto.toLowerCase().contains(searchLower)
+            ).toList();
+            
+            if (matched.isEmpty) return <DB.Note>[];
+            
+            final matricula = matched.first.matricula;
+            final qNotas = widget.db.select(widget.db.notes)
+              ..where((t) => t.matricula.equals(matricula))
+              ..orderBy([
+                (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc),
+              ]);
+            return await qNotas.get();
+          }
         })(),
       ]);
 
@@ -310,6 +355,13 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> with WidgetsBindingOb
         _notasLocal = notasLocal;
         _atencionIntegral = integral;
         _cargando = false;
+        
+        // Mensaje informativo para búsqueda por nombre
+        if (!esMatricula && expLocal != null) {
+          _error = 'ℹ️ Búsqueda local: "${expLocal.nombreCompleto}". Para ver datos de nube, busca por matrícula: ${expLocal.matricula}';
+        } else if (!esMatricula && expLocal == null) {
+          _error = 'No se encontró ningún expediente local con ese nombre. Para buscar en nube, usa la matrícula.';
+        }
       });
     } catch (e) {
       if (!mounted) return;
@@ -1727,8 +1779,9 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> with WidgetsBindingOb
       ),
       body: Row(
         children: [
-          // Barra lateral institucional UAGro
-          const BrandSidebar(),
+          // Barra lateral institucional UAGro - OCULTA en Android/iOS
+          if (!(Platform.isAndroid || Platform.isIOS))
+            const BrandSidebar(),
           // Contenido principal (sin cambios de lógica)
           Expanded(
             child: SingleChildScrollView(
@@ -1805,10 +1858,10 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> with WidgetsBindingOb
 
             const SizedBox(height: 12),
 
-            // Buscar NOTAS por matrícula
+            // Buscar NOTAS por matrícula o nombre
             SectionCard(
               icon: Icons.search,
-              title: 'Buscar notas por matrícula',
+              title: 'Buscar notas por matrícula o nombre',
               child: Column(
                 children: [
                   Row(
@@ -1816,7 +1869,10 @@ class _NuevaNotaScreenState extends State<NuevaNotaScreen> with WidgetsBindingOb
                       Expanded(
                         child: TextField(
                           controller: _mat,
-                          decoration: const InputDecoration(labelText: 'Matrícula'),
+                          decoration: const InputDecoration(
+                            labelText: 'Matrícula o Nombre',
+                            hintText: 'Ej: 2021001 o Juan Pérez',
+                          ),
                           onChanged: _onMatriculaChanged,
                           onSubmitted: (_) => _buscarNotasMatricula(),
                         ),

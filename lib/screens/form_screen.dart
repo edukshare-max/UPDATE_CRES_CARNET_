@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:io' show Platform;
+import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' show Value, OrderingTerm, OrderingMode;
 import '../data/db.dart';
 import '../data/sync_service.dart';
@@ -513,6 +514,9 @@ class _FormScreenState extends State<FormScreen> {
   @override
   Widget build(BuildContext context) {
     final mobile = isMobile(context);
+    // Detectar plataforma: SOLO mostrar franja en Windows/Mac/Linux (NO en Android/iOS)
+    final isMobilePlatform = Platform.isAndroid || Platform.isIOS;
+    final showBanner = !isMobilePlatform && MediaQuery.sizeOf(context).width >= 1200;
     
     return Scaffold(
       appBar: uagroAppBar('CRES Carnets', 'Rellenar / Editar carnet', null, context, widget.db),
@@ -521,11 +525,11 @@ class _FormScreenState extends State<FormScreen> {
           SafeArea(
             child: LayoutBuilder(
               builder: (context, _) {
-                if (isDesktop(context)) {
-                  // PC: mantener layout actual exacto
+                if (showBanner) {
+                  // PC Windows/Mac/Linux: mantener layout con franja
                   return Column(
                     children: [
-                      // Franja superior institucional UAGro
+                      // Franja superior institucional UAGro (NUNCA en Android/iOS)
                       Container(
                         width: double.infinity,
                         height: 80,
@@ -855,9 +859,9 @@ class _FormScreenState extends State<FormScreen> {
   ); // Cierre del Column del body (PC)
                 }
                 
-                // Móvil: layout responsivo
+                // Móvil/Tablet: layout responsivo SIN franja azul
                 return SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(horizontal: mobile ? 12 : 24, vertical: mobile ? 8 : 16),
+                  padding: EdgeInsets.symmetric(horizontal: mobile ? 8 : 24, vertical: mobile ? 4 : 16),
                   child: Center(
                     child: ConstrainedBox(
                       constraints: BoxConstraints(maxWidth: mobile ? double.infinity : 1200),
@@ -1125,26 +1129,36 @@ class _FormScreenState extends State<FormScreen> {
     final matriculaTxt = _ctrl['matricula']!.text.trim();
 
     // Si NO estamos bloqueando matrícula (alta), verifica existencia en nube por matrícula
+    // PERO solo si hay conexión a internet (para evitar bloqueo de 60 segundos offline)
     if (!_lockMatricula) {
-      try {
-        final pac = await ApiService.getExpedienteByMatricula(matriculaTxt);
-        if (pac != null) {
-          if (!mounted) return;
-          await showDialog<void>(
-            context: context,
-            builder: (_) => AlertDialog(
-              title: const Text('Matrícula existente en la nube'),
-              content: Text(
-                  'La matrícula "$matriculaTxt" ya existe en el servidor.\n\n'
-                  'Agrega notas desde "Nueva nota" o entra con el botón "Editar carnet" para modificar datos.'),
-              actions: [
-                TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Entendido')),
-              ],
-            ),
-          );
-          return;
-        }
-      } catch (_) {}
+      // 🚀 Verificación rápida de conexión (3 segundos max)
+      final hasInternet = await ApiService.hasInternetConnection();
+      
+      if (hasInternet) {
+        // Solo verificar duplicados si HAY internet
+        try {
+          final pac = await ApiService.getExpedienteByMatricula(matriculaTxt);
+          if (pac != null) {
+            if (!mounted) return;
+            await showDialog<void>(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: const Text('Matrícula existente en la nube'),
+                content: Text(
+                    'La matrícula "$matriculaTxt" ya existe en el servidor.\n\n'
+                    'Agrega notas desde "Nueva nota" o entra con el botón "Editar carnet" para modificar datos.'),
+                actions: [
+                  TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Entendido')),
+                ],
+              ),
+            );
+            return;
+          }
+        } catch (_) {}
+      } else {
+        // Sin internet: guardar directo sin verificar duplicados
+        print('[OFFLINE] Sin internet detectado - guardando directo sin verificación');
+      }
     }
 
     final comp = HealthRecordsCompanion.insert(

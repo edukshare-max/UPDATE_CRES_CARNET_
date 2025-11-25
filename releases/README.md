@@ -12,13 +12,26 @@ releases/
 │   │   ├── flutter_windows.dll
 │   │   ├── data/
 │   │   └── README.txt
-├── android/                    # Releases de Android
-│   ├── apk/                    # Archivos APK
-│   │   └── CRES_Carnets_YYYY-MM-DD_HH-mm-ss.apk
-│   ├── bundle/                 # Archivos AAB
-│   │   └── CRES_Carnets_YYYY-MM-DD_HH-mm-ss.aab
-│   └── CRES_Carnets_Android_YYYY-MM-DD_HH-mm-ss.txt
+│   └── Instaladores/
+│       └── CRES_Carnets_Setup_v2.4.20.exe (13.22 MB)
+├── android/                    # ✨ Nuevo: Releases de Android
+│   ├── CRES_Carnets_v2.4.20_arm64-v8a.apk (21.18 MB) ⭐ Recomendado
+│   ├── CRES_Carnets_v2.4.20_armeabi-v7a.apk (19.09 MB)
+│   ├── CRES_Carnets_v2.4.20_universal.apk (60.39 MB)
+│   ├── CRES_Carnets_v2.4.20_x86_64.apk (22.36 MB)
+│   ├── README_ANDROID.md (instrucciones detalladas)
+│   └── DESCARGAS_RAPIDAS.md (enlaces directos)
 ```
+
+## 📱 Android v2.4.20 (Nuevo)
+
+### APKs disponibles:
+- **arm64-v8a** (21 MB): Para dispositivos modernos 2017+ (⭐ Recomendado)
+- **armeabi-v7a** (19 MB): Para dispositivos antiguos pre-2017
+- **universal** (60 MB): Compatible con TODOS los dispositivos
+- **x86_64** (22 MB): Para emuladores y tablets x86
+
+Ver [android/README_ANDROID.md](android/README_ANDROID.md) para instrucciones de instalación.
 
 ## 🚀 Cómo usar los scripts
 
