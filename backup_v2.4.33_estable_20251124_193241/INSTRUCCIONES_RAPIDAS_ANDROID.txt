@@ -1,0 +1,52 @@
+📱 INSTALACIÓN RÁPIDA - CRES CARNETS ANDROID
+
+═══════════════════════════════════════════════════
+
+📥 PASO 1: DESCARGAR
+────────────────────
+1. Abre este enlace en tu celular/tablet:
+   https://github.com/edukshare-max/UPDATE_CRES_CARNET_/releases/tag/v.2.4.1
+
+2. Descarga el archivo que dice "arm64-v8a" (21 MB)
+   (Funciona en el 90% de dispositivos)
+
+═══════════════════════════════════════════════════
+
+🔓 PASO 2: HABILITAR PERMISOS
+─────────────────────────────
+Cuando toques el APK descargado, aparecerá un mensaje:
+"Por tu seguridad, no puedes instalar desde esta fuente"
+
+→ Toca "Configuración" o "Ajustes"
+→ Activa "Permitir desde esta fuente"
+→ Regresa y vuelve a tocar el APK
+
+═══════════════════════════════════════════════════
+
+📲 PASO 3: INSTALAR
+───────────────────
+1. Ve a Descargas o Archivos
+2. Toca el archivo descargado
+3. Toca "Instalar"
+4. ¡Listo! Abre la app
+
+═══════════════════════════════════════════════════
+
+⚠️ PROBLEMAS COMUNES:
+────────────────────
+❌ No se descarga completo
+   → Usa WiFi en lugar de datos móviles
+
+❌ Error al instalar
+   → Desinstala cualquier versión anterior primero
+
+❌ "Aplicación no compatible"
+   → Descarga el archivo "armeabi-v7a" en su lugar
+
+═══════════════════════════════════════════════════
+
+✅ Después de instalar, puedes DESACTIVAR nuevamente
+   los permisos de "Fuentes desconocidas" para
+   mayor seguridad.
+
+═══════════════════════════════════════════════════

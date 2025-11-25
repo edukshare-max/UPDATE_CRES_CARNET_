@@ -1,0 +1,18 @@
+{
+  "version": "2.4.31",
+  "build_number": 31,
+  "release_date": "2025-11-24T12:09:00Z",
+  "file_size": 16637149,
+  "checksum": "F13C9B0275EC9428FC242FFC8EA6D52BB1ED5964EF01B4BB83A9EE5320A6B64E",
+  "download_url": "https://github.com/edukshare-max/UPDATE_CRES_CARNET_/releases/download/v2.4.31/CRES_Carnets_Windows_v2.4.31.zip",
+  "changelog": [
+    "✅ Búsqueda por nombre o matrícula en página 'Administrar Expedientes'",
+    "✅ Campo de búsqueda con filtrado en tiempo real",
+    "✅ Búsqueda parcial case-insensitive (mayúsculas/minúsculas)",
+    "✅ Botón para limpiar búsqueda rápidamente",
+    "🔧 Backend con endpoint /carnet/search desplegado"
+  ],
+  "minimum_version": "2.4.0",
+  "required": false,
+  "platform": "windows"
+}

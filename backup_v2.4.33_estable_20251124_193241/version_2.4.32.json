@@ -1,0 +1,18 @@
+﻿{
+    "build_number":  32,
+    "required":  false,
+    "platform":  "windows",
+    "version":  "2.4.32",
+    "release_date":  "2025-11-24T13:00:00Z",
+    "minimum_version":  "2.4.0",
+    "file_size":  16635437,
+    "download_url":  "https://github.com/edukshare-max/UPDATE_CRES_CARNET_/releases/download/v2.4.32/CRES_Carnets_Windows_v2.4.32.zip",
+    "changelog":  [
+                      " Búsqueda por nombre en \u0027Administrar Expedientes\u0027",
+                      " Búsqueda por nombre/matrícula en \u0027Nueva Nota\u0027 (local)",
+                      "ℹ Búsqueda en nube requiere matrícula",
+                      " Filtrado en tiempo real",
+                      " Mensajes informativos para guiar al usuario"
+                  ],
+    "checksum":  "0871FE678D900F3C2010447B97E7EC9CD96B13DE4B75696A1E14039FA1628ECC"
+}

@@ -1,0 +1,56 @@
+# CRES Carnets v2.4.32 - Instalación Manual
+
+## 📦 Archivos incluidos
+
+1. `CRES_Carnets_Windows_v2.4.32.zip` - Aplicación (15.86 MB)
+2. `instalar_v2.4.32.ps1` - Script de instalación automática
+
+## 🚀 Instalación Rápida (RECOMENDADA)
+
+1. Copia ambos archivos a la PC
+2. Haz clic derecho en `instalar_v2.4.32.ps1`
+3. Selecciona "Ejecutar con PowerShell"
+4. ¡Listo! La app se abrirá automáticamente
+
+## 📋 Instalación Manual
+
+Si prefieres hacerlo manualmente:
+
+1. Extrae `CRES_Carnets_Windows_v2.4.32.zip`
+2. Copia la carpeta extraída a: `C:\Users\TuUsuario\AppData\Local\CRES_Carnets`
+3. Ejecuta `cres_carnets_ibmcloud.exe`
+
+## ✨ Novedades v2.4.32
+
+### Búsqueda por Nombre
+- ✅ Nueva opción en "Administrar Expedientes"
+- ✅ Campo de búsqueda con filtrado en tiempo real
+- ✅ Busca por matrícula O nombre
+
+### En "Nueva Nota"
+- **Buscar por matrícula** (ej: 2021001):
+  - Busca en local Y nube
+  - Muestra todos los datos
+
+- **Buscar por nombre** (ej: Juan Pérez):
+  - Busca solo en local
+  - Muestra la matrícula para buscar en nube
+  - Mensaje informativo
+
+## ⚠️ Nota Importante
+
+La búsqueda por nombre en nube estará disponible cuando el backend se actualice.
+Por ahora, funciona perfectamente para datos locales.
+
+## 🔄 Para Actualizar Múltiples PCs
+
+Copia estos 2 archivos a cada PC y ejecuta el script de instalación.
+El script:
+- Cierra la app automáticamente
+- Hace backup de la versión anterior
+- Instala la nueva versión
+- Crea acceso directo en el escritorio
+
+## 📞 Soporte
+
+Si tienes problemas, contacta al administrador del sistema.

@@ -1,0 +1,136 @@
+name: Verify Citas System
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: 'Base URL of the API'
+        required: true
+        default: 'https://fastapi-backend-o7ks.onrender.com'
+        type: string
+      matricula:
+        description: 'Matricula for test cita'
+        required: true
+        default: '2025'
+        type: string
+      inicio:
+        description: 'Start time for test cita'
+        required: true
+        default: '2025-10-04T09:00:00Z'
+        type: string
+      fin:
+        description: 'End time for test cita'
+        required: true
+        default: '2025-10-04T09:30:00Z'
+        type: string
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      API_BASE_URL: ${{ inputs.api_base_url }}
+      MATRICULA: ${{ inputs.matricula }}
+      INICIO: ${{ inputs.inicio }}
+      FIN: ${{ inputs.fin }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup tools
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+
+      - name: Step 1 - Diagnóstico
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p verify-citas-results
+          curl -fsSL "$API_BASE_URL/_diag/citas?t=1" -o verify-citas-results/diag.json || echo '{}' > verify-citas-results/diag.json
+          DB=$(jq -r '.db // empty' verify-citas-results/diag.json)
+          CT=$(jq -r '.container // empty' verify-citas-results/diag.json)
+          PK=$(jq -r '.pk_path // empty' verify-citas-results/diag.json)
+          CR=$(jq -r '.can_read // empty' verify-citas-results/diag.json)
+          echo "DB=$DB"
+          echo "CONTAINER=$CT"
+          echo "PK=$PK"
+          echo "CAN_READ=$CR"
+          FAIL=0
+          [[ "$DB" == "SASU" ]] || FAIL=1
+          [[ "$CT" == "cita_id" ]] || FAIL=1
+          [[ "$PK" == "/id" ]] || FAIL=1
+          [[ "$CR" == "true" ]] || FAIL=1
+          echo "DIAG_FAIL=$FAIL" >> $GITHUB_ENV
+
+      - name: Step 2 - Crear Cita
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          BODY=$(jq -n --arg m "$MATRICULA" --arg i "$INICIO" --arg f "$FIN" --arg mo "SEGUIMIENTO" '{matricula:$m,inicio:$i,fin:$f,motivo:$mo}')
+          HTTP_CODE=$(curl -s -w "%{http_code}" -o verify-citas-results/post.json -H "Content-Type: application/json" -X POST "$API_BASE_URL/citas?t=1" -d "$BODY")
+          echo "POST_CODE=$HTTP_CODE"
+          CID=$(jq -r '.data.id // .id // empty' verify-citas-results/post.json)
+          echo "CID=$CID" >> $GITHUB_ENV
+          [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "201" ]] && echo "POST_FAIL=0" >> $GITHUB_ENV || echo "POST_FAIL=1" >> $GITHUB_ENV
+
+      - name: Step 3 - Listar por Matrícula
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          curl -fsSL "$API_BASE_URL/citas/por-matricula/$MATRICULA?t=1" -o verify-citas-results/list.json || echo '[]' > verify-citas-results/list.json
+          COUNT=$(jq 'length' verify-citas-results/list.json)
+          echo "LIST_COUNT=$COUNT"
+          CID="${CID:-}"
+          if [[ -n "$CID" ]]; then
+            HIT=$(jq --arg id "$CID" '[.[] | select(.id==$id)] | length' verify-citas-results/list.json)
+          else
+            HIT=0
+          fi
+          echo "LIST_FAIL=$([[ "$COUNT" -ge 1 && "$HIT" -ge 1 ]] && echo 0 || echo 1)" >> $GITHUB_ENV
+
+      - name: Step 4 - Leer por ID (opcional)
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -Eeuo pipefail
+          CID="${CID:-}"
+          if [[ -n "$CID" ]]; then
+            curl -fsSL "$API_BASE_URL/citas/$CID?t=1" -o verify-citas-results/byId.json || echo '{}' > verify-citas-results/byId.json
+          else
+            echo '{}' > verify-citas-results/byId.json
+          fi
+
+      - name: Step 5 - Summary & Final Gate
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          DIAG_FAIL="${DIAG_FAIL:-1}"
+          POST_FAIL="${POST_FAIL:-1}"
+          LIST_FAIL="${LIST_FAIL:-1}"
+          echo "### Verify Citas System" >> $GITHUB_STEP_SUMMARY
+          echo "- DIAG_FAIL: $DIAG_FAIL" >> $GITHUB_STEP_SUMMARY
+          echo "- POST_FAIL: $POST_FAIL" >> $GITHUB_STEP_SUMMARY
+          echo "- LIST_FAIL: $LIST_FAIL" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### diag.json" >> $GITHUB_STEP_SUMMARY
+          sed -e 's/^/    /' verify-citas-results/diag.json >> $GITHUB_STEP_SUMMARY || true
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### post.json" >> $GITHUB_STEP_SUMMARY
+          sed -e 's/^/    /' verify-citas-results/post.json >> $GITHUB_STEP_SUMMARY || true
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### list.json" >> $GITHUB_STEP_SUMMARY
+          sed -e 's/^/    /' verify-citas-results/list.json >> $GITHUB_STEP_SUMMARY || true
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### byId.json" >> $GITHUB_STEP_SUMMARY
+          sed -e 's/^/    /' verify-citas-results/byId.json >> $GITHUB_STEP_SUMMARY || true
+
+          # Gate final: falla SOLO si alguno falló
+          if [[ "$DIAG_FAIL" != "0" || "$POST_FAIL" != "0" || "$LIST_FAIL" != "0" ]]; then
+            echo "One or more checks failed"; exit 1
+          fi
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-citas-results
+          path: verify-citas-results/**
+          if-no-files-found: warn
